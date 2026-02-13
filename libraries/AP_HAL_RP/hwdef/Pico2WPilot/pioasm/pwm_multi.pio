@@ -1,0 +1,9 @@
+.program pwm_multi
+
+.wrap_target
+    mov y, isr
+count_loop:
+    pull block
+    out pins, 32
+    jmp y-- count_loop
+.wrap
