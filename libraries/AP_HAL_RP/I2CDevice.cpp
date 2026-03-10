@@ -259,38 +259,12 @@ bool I2CBus::soft_i2c_transfer(uint8_t address, const uint8_t *send, uint32_t se
 bool I2CBus::transfer(uint8_t address, const uint8_t *send, uint32_t send_len,
                       uint8_t *recv, uint32_t recv_len)
 {
-    static uint32_t transfer_count = 0;
-    static bool init_printed = false;
-    transfer_count++;
-    
-    // Print init info on first transfer (console should be ready by then)
-    if (!init_printed && hal.console) {
-        hal.console->printf("I2C%d initialized: SDA=GPIO%u, SCL=GPIO%u, speed=%lu Hz %s\n",
-                            bus_num, _sda, _scl, (unsigned long)bus_clock,
-                            _soft ? "(soft)" : "(hard)");
-        init_printed = true;
-    }
-    
     if (!initialized) {
-        if (hal.console) {
-            hal.console->printf("I2C ERROR: bus not initialized (bus_num=%u, transfer #%u)\n", 
-                                bus_num, (unsigned)transfer_count);
-        }
         return false;
     }
     
     if (!_soft && !_instance) {
-        if (hal.console) {
-            hal.console->printf("I2C ERROR: hardware instance not set (bus_num=%u)\n", bus_num);
-        }
         return false;
-    }
-    
-    // Debug first few transfers
-    if (hal.console && transfer_count <= 3) {
-        hal.console->printf("I2C transfer #%u: addr=0x%02x send_len=%u recv_len=%u %s\n",
-                            (unsigned)transfer_count, address, (unsigned)send_len, (unsigned)recv_len,
-                            _soft ? "(soft)" : "(hard)");
     }
 
     // Use software I2C if configured
@@ -299,27 +273,16 @@ bool I2CBus::transfer(uint8_t address, const uint8_t *send, uint32_t send_len,
     }
 
     int ret;
-    static uint32_t error_count = 0;
 
     if (send_len > 0 && recv_len > 0) {
         // Write then read
         // Use timeout version: 100000us (100ms) per character for very slow devices
         ret = i2c_write_timeout_per_char_us(_instance, address, send, send_len, false, 100000);
         if (ret < 0) {
-            error_count++;
-            if (hal.console) {
-                hal.console->printf("I2C ERROR: write failed addr=0x%02x send_len=%u ret=%d (error #%u)\n",
-                                    address, (unsigned)send_len, ret, (unsigned)error_count);
-            }
             return false;
         }
         ret = i2c_read_timeout_per_char_us(_instance, address, recv, recv_len, false, 100000);
         if (ret < 0) {
-            error_count++;
-            if (hal.console) {
-                hal.console->printf("I2C ERROR: read failed addr=0x%02x recv_len=%u ret=%d (error #%u)\n",
-                                    address, (unsigned)recv_len, ret, (unsigned)error_count);
-            }
             return false;
         }
     } else if (send_len > 0) {
@@ -327,22 +290,12 @@ bool I2CBus::transfer(uint8_t address, const uint8_t *send, uint32_t send_len,
         // Use timeout version: 100000us (100ms) per character for very slow devices
         ret = i2c_write_timeout_per_char_us(_instance, address, send, send_len, true, 100000);
         if (ret < 0) {
-            error_count++;
-            if (hal.console) {
-                hal.console->printf("I2C ERROR: write-only failed addr=0x%02x send_len=%u ret=%d (error #%u)\n",
-                                    address, (unsigned)send_len, ret, (unsigned)error_count);
-            }
             return false;
         }
     } else if (recv_len > 0) {
         // Read only
         ret = i2c_read_timeout_per_char_us(_instance, address, recv, recv_len, false, 100000);
         if (ret < 0) {
-            error_count++;
-            if (hal.console) {
-                hal.console->printf("I2C ERROR: read-only failed addr=0x%02x recv_len=%u ret=%d (error #%u)\n",
-                                    address, (unsigned)recv_len, ret, (unsigned)error_count);
-            }
             return false;
         }
     } else {
@@ -462,11 +415,6 @@ I2CDevice::register_periodic_callback(uint32_t period_usec,
     TickType_t period_ticks = (period_usec + 999) / 1000; // Round up to nearest ms
     if (period_ticks == 0) {
         period_ticks = 1; // Minimum 1 tick (1ms)
-    }
-    
-    if (hal.console) {
-        hal.console->printf("I2C: register_periodic_callback period=%u us (%u ticks)\n",
-                            (unsigned)period_usec, (unsigned)period_ticks);
     }
     
     // Allocate callback info structure

@@ -246,14 +246,6 @@ void AP_Baro_DPS280::timer(void)
 {
     uint8_t buf[6];
     uint8_t ready;
-    static uint32_t timer_count = 0;
-    static uint32_t not_ready_count = 0;
-    timer_count++;
-    
-    // Debug: always print first few calls to verify timer() is being called
-    if (hal.console && timer_count <= 5) {
-        hal.console->printf("DPS310: timer() called #%u\n", (unsigned)timer_count);
-    }
 
     if (pending_reset) {
         // reset registers after software reset from check_health()
@@ -262,32 +254,11 @@ void AP_Baro_DPS280::timer(void)
         return;
     }
 
-    if (!dev->read_registers(DPS280_REG_MCONF, &ready, 1)) {
-        not_ready_count++;
-        if (hal.console && timer_count <= 10) {
-            hal.console->printf("DPS310: failed to read MCONF (timer #%u)\n", (unsigned)timer_count);
-        }
-        err_count++;
-        check_health();
-        return;
-    }
-    
-    if (!(ready & (1U<<4))) {
-        not_ready_count++;
-        if (hal.console && timer_count <= 10) {
-            hal.console->printf("DPS310: data not ready MCONF=0x%02x (timer #%u, not_ready #%u)\n",
-                                ready, (unsigned)timer_count, (unsigned)not_ready_count);
-        }
-        err_count++;
-        check_health();
-        return;
-    }
-    
-    if (!dev->read_registers(DPS280_REG_PRESS, buf, 3) ||
+    if (!dev->read_registers(DPS280_REG_MCONF, &ready, 1) ||
+        !(ready & (1U<<4)) ||
+        !dev->read_registers(DPS280_REG_PRESS, buf, 3) ||
         !dev->read_registers(DPS280_REG_TEMP, &buf[3], 3)) {
-        if (hal.console && timer_count <= 10) {
-            hal.console->printf("DPS310: failed to read PRESS/TEMP (timer #%u)\n", (unsigned)timer_count);
-        }
+        // data not ready
         err_count++;
         check_health();
         return;
@@ -305,10 +276,6 @@ void AP_Baro_DPS280::timer(void)
     last_temperature = temperature;
 
     if (!pressure_ok(pressure)) {
-        if (hal.console && timer_count <= 10) {
-            hal.console->printf("DPS310: pressure not OK p=%.2f (timer #%u)\n",
-                                pressure, (unsigned)timer_count);
-        }
         return;
     }
 
@@ -323,23 +290,12 @@ void AP_Baro_DPS280::timer(void)
     pressure_sum += pressure;
     temperature_sum += temperature;
     count++;
-    
-    if (hal.console && timer_count <= 5) {
-        hal.console->printf("DPS310: data OK p=%.2f t=%.2f count=%u (timer #%u)\n",
-                            pressure, temperature, (unsigned)count, (unsigned)timer_count);
-    }
 }
 
 // transfer data to the frontend
 void AP_Baro_DPS280::update(void)
 {
-    static uint32_t update_count = 0;
-    update_count++;
-    
     if (count == 0) {
-        if (hal.console && update_count <= 10) {
-            hal.console->printf("DPS310: update() count=0 (update #%u)\n", (unsigned)update_count);
-        }
         return;
     }
 
