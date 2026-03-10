@@ -417,6 +417,11 @@ AP_HW_HCR-551                        1960
 AP_HW_HCR-565                        1961
 AP_HW_HCR-566                        1962
 
+# IDs 1980-1999 reserved for RP2350-based boards
+AP_HW_KOLIBRI						 1980
+AP_HW_PICO2-PILOT					 1981
+AP_HW_PICO2W-PILOT					 1982
+
 AP_HW_MFT-SEMA100                    2000
 
 AP_HW_SULILGH7-P1-P2                 2005

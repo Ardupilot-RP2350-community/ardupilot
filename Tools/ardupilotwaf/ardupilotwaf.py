@@ -387,6 +387,7 @@ def ap_program(bld,
         program_dir = program_groups[0]
 
     name = os.path.join(program_dir, program_name)
+    taskgen_name = kw.pop('name', name)
 
     tg_constructor = bld.program
     if bld.env.AP_PROGRAM_AS_STLIB:
@@ -398,7 +399,7 @@ def ap_program(bld,
 
     tg = tg_constructor(
         target='#%s' % name,
-        name=name,
+        name=taskgen_name,
         program_name=program_name,
         program_dir=program_dir,
         **kw

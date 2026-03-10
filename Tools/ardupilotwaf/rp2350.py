@@ -127,6 +127,12 @@ def generate_pico_project(env):
         f.write(cmake_content)
     print("Generated CMakeLists.txt.")
 
+    try:
+        generate_linker_scripts(env)
+    except Exception:
+        traceback.print_exc()
+        raise
+
     # Copy pioasm
     hwdef_dir = os.path.join(env.SRCROOT, 'libraries/AP_HAL_RP/hwdef')
     env.PIOASM = os.path.join(hwdef_dir, env.BOARD, 'pioasm')
@@ -163,6 +169,128 @@ def generate_pico_project(env):
         f.write(gpio_header_content)
     print(f"Generated GPIO header file: {gpio_header_filename}")
     print(f"\nProject '{project_name}' successfully generated.")
+
+def generate_linker_scripts(env):
+    """Generate linker scripts for application and bootloader images from one template."""
+
+    def path_to_string(path):
+        if hasattr(path, 'abspath'):
+            return path.abspath()
+        return str(path)
+    def read_template_file(path):
+        with open(path_to_string(path), 'r', encoding='utf-8') as f:
+            return f.read()
+    def write_generated_file(path, content):
+        with open(path, 'w', encoding='utf-8') as f:
+            f.write(content)
+    def read_int_env(keys, default):
+        for key in keys:
+            value = getattr(env, key, None)
+            if value is None:
+                continue
+            if isinstance(value, (list, tuple)):
+                if len(value) == 0:
+                    continue
+                value = value[0]
+            if isinstance(value, str):
+                value = value.strip().strip("\"'")
+                if value == '':
+                    continue
+            try:
+                return int(str(value), 0)
+            except (TypeError, ValueError):
+                continue
+        return int(default, 0)
+    def read_hwdef_define_int(define_name):
+        hwdef_paths = []
+        if hasattr(env, 'HWDEF') and env.HWDEF:
+            if isinstance(env.HWDEF, (list, tuple)):
+                hwdef_paths.extend(env.HWDEF)
+            else:
+                hwdef_paths.append(env.HWDEF)
+        board_hwdef = os.path.join(env.SRCROOT, 'libraries/AP_HAL_RP/hwdef', env.BOARD, 'hwdef.dat')
+        hwdef_paths.append(board_hwdef)
+        pattern = re.compile(rf'^\s*define\s+{re.escape(define_name)}\s+(\S+)')
+        for path in hwdef_paths:
+            if not path:
+                continue
+            path_str = path_to_string(path)
+            if not os.path.exists(path_str):
+                continue
+            with open(path_str, 'r', encoding='utf-8') as f:
+                for line in f:
+                    line = line.split('#')[0].strip()
+                    match = pattern.match(line)
+                    if not match:
+                        continue
+                    try:
+                        return int(match.group(1), 0)
+                    except ValueError:
+                        pass
+        return None
+
+    flash_base_addr = read_int_env(('FLASH_BASE_ADDR',), '0x10000000')
+    flash_size_kb = read_int_env(('FLASH_SIZE_KB',), '0x0')
+    if flash_size_kb > 0:
+        flash_total_size = flash_size_kb * 1024
+    else:
+        flash_total_size = read_int_env(('FLASH_TOTAL_SIZE', 'HAL_FLASH_TOTAL_SIZE'), '0x200000')
+        if flash_total_size == 0x200000:
+            hwdef_total_size = read_hwdef_define_int('HAL_FLASH_TOTAL_SIZE')
+            if hwdef_total_size is not None:
+                flash_total_size = hwdef_total_size
+
+    flash_storage_offset = read_int_env(('FLASH_STORAGE_OFFSET', 'HAL_FLASH_STORAGE_OFFSET'), '0x0')
+    if flash_storage_offset == 0:
+        hwdef_storage_offset = read_hwdef_define_int('HAL_FLASH_STORAGE_OFFSET')
+        if hwdef_storage_offset is not None:
+            flash_storage_offset = hwdef_storage_offset
+    flash_reserve_start_kb = read_int_env(('FLASH_RESERVE_START_KB',), '0x0')
+    flash_bootloader_load_kb = read_int_env(('FLASH_BOOTLOADER_LOAD_KB',), '0x0')
+    app_start_offset_kb = read_int_env(('APP_START_OFFSET_KB',), '0x0')
+
+    flash_program_size = flash_total_size
+    if 0 < flash_storage_offset < flash_total_size:
+        flash_program_size = flash_storage_offset
+
+    bootloader_size = read_int_env(('BOOTLOADER_SIZE',), '0x20000')
+    if flash_bootloader_load_kb > 0:
+        app_start_kb = flash_bootloader_load_kb + app_start_offset_kb
+        computed_bootloader_size = (app_start_kb - flash_reserve_start_kb) * 1024
+        if computed_bootloader_size > 0:
+            bootloader_size = computed_bootloader_size
+
+    if bootloader_size <= 0 or bootloader_size >= flash_program_size:
+        print("Invalid BOOTLOADER_SIZE value, falling back to 0x20000")
+        bootloader_size = 0x20000
+
+    flash_region_layouts = {
+        'bootloader_pico_flash_region.ld': {
+            '{flash_origin}': f'0x{flash_base_addr:08x}',
+            '{flash_length}': f'0x{bootloader_size:x}',
+        },
+        'application_pico_flash_region.ld': {
+            '{flash_origin}': f'0x{flash_base_addr + bootloader_size:08x}',
+            '{flash_length}': f'0x{flash_program_size - bootloader_size:x}',
+        },
+    }
+
+    flash_region_template = read_template_file(env.PICO_FLASH_REGION_TEMPLATE)
+    for output_name, substitutions in flash_region_layouts.items():
+        content = flash_region_template
+        for key, value in substitutions.items():
+            content = content.replace(key, value)
+        write_generated_file(output_name, content)
+        print(f"Generated flash region file: {output_name}")
+
+    memmap_template = read_template_file(env.MEMMAP_DEFAULT_TEMPLATE)
+    for output_name, flash_region_file in (
+        ('bootloader_memmap_default.ld', 'bootloader_pico_flash_region.ld'),
+        ('application_memmap_default.ld', 'application_pico_flash_region.ld'),
+    ):
+        content = memmap_template.replace('{flash_region}', flash_region_file)
+        write_generated_file(output_name, content)
+        print(f"Generated memmap file: {output_name}")
 
 def get_target_mcu(cfg):
     """Read MCU variable from hwdef file."""
@@ -225,6 +353,22 @@ def configure(cfg):
     env.AP_PROGRAM_FEATURES += ['rp2350_ap_program']
     env.FREERTOS_CONFIG_H_TEMPLATE = srcpath('libraries/AP_HAL_RP/template/FreeRTOSConfig.h.template')
     env.CMAKE_LISTS_TXT_TEMPLATE = srcpath('libraries/AP_HAL_RP/template/CMakeLists.txt.template')
+
+    default_memmap_template = srcpath('libraries/AP_HAL_RP/template/memmap_default.ld.template')
+    board_memmap_template = srcpath(f'libraries/AP_HAL_RP/hwdef/{cfg.variant}/memmap_default.ld.template')
+    if os.path.exists(board_memmap_template):
+        env.MEMMAP_DEFAULT_TEMPLATE = board_memmap_template
+        print(f"Using board memmap template: {board_memmap_template}")
+    else:
+        env.MEMMAP_DEFAULT_TEMPLATE = default_memmap_template
+    default_flash_region_template = srcpath('libraries/AP_HAL_RP/template/pico_flash_region.ld.template')
+    board_flash_region_template = srcpath(f'libraries/AP_HAL_RP/hwdef/{cfg.variant}/pico_flash_region.ld.template')
+    if os.path.exists(board_flash_region_template):
+        env.PICO_FLASH_REGION_TEMPLATE = board_flash_region_template
+        print(f"Using board flash-region template: {board_flash_region_template}")
+    else:
+        env.PICO_FLASH_REGION_TEMPLATE = default_flash_region_template
+
     env.PICO_SDK_PREFIX_REL = 'pico-sdk'
 
     env.RP_TARGET = target
@@ -268,8 +412,15 @@ def generate_hwdef_h(env):
     '''run rp_hwdef.py'''
     hwdef_dir = os.path.join(env.SRCROOT, 'libraries/AP_HAL_RP/hwdef')
 
-    if len(env.HWDEF) == 0:
-        env.HWDEF = os.path.join(hwdef_dir, env.BOARD, 'hwdef.dat')
+    if env.BOOTLOADER:
+        if len(env.HWDEF) == 0:
+            env.HWDEF = os.path.join(hwdef_dir, env.BOARD, 'hwdef-bl.dat')
+        else:
+            env.HWDEF = env.HWDEF.replace('hwdef.dat', 'hwdef-bl.dat')
+    else:
+        if len(env.HWDEF) == 0:
+            env.HWDEF = os.path.join(hwdef_dir, env.BOARD, 'hwdef.dat')
+
     hwdef_out = env.BUILDROOT
     if not os.path.exists(hwdef_out):
         os.mkdir(hwdef_out)
@@ -279,6 +430,7 @@ def generate_hwdef_h(env):
 
     hwdef_obj = rp_hwdef.RP2350HWDef(
         outdir=hwdef_out,
+        bootloader=env.BOOTLOADER,
         hwdef=hwdef,
         quiet=False,
     )
@@ -290,7 +442,22 @@ def pre_build(self):
     """Configure Pico C/C++ SDK as lib target"""
     lib_vars = OrderedDict()
     lib_vars['ARDUPILOT_CMD'] = self.cmd
-    lib_vars['WAF_BUILD_TARGET'] = self.targets
+
+    waf_build_target = self.targets if self.targets else self.cmd
+    rp_output_name = 'ardupilot'
+    if self.cmd == 'bootloader' and waf_build_target == 'bootloader':
+        if self.srcnode.find_dir('Tools/AP_Bootloader_RP') is not None:
+            waf_build_target = 'bootloader/AP_Bootloader_RP'
+        else:
+            waf_build_target = 'bootloader/AP_Bootloader'
+
+    if self.cmd == 'bootloader' and waf_build_target.startswith('bootloader/'):
+        rp_output_name = waf_build_target.split('/', 1)[1]
+
+    lib_vars['WAF_BUILD_TARGET'] = waf_build_target
+    lib_vars['ARDUPILOT_OUTPUT_NAME'] = rp_output_name
+    self.env.RP_OUTPUT_NAME = rp_output_name
+
     lib_vars['ARDUPILOT_LIB'] = self.bldnode.find_or_declare('lib/').abspath()
     lib_vars['ARDUPILOT_BIN'] = self.bldnode.find_or_declare('lib/bin').abspath()
     lib_vars['PICO_SDK_PATH'] = self.env.PICO_SDK
@@ -331,7 +498,7 @@ def rp2350_firmware(self):
     self.link_task.always_run = True
     pico_sdk = self.bld.cmake('pico-sdk')
 
-    build = pico_sdk.build('all', target='pico-sdk_build/ardupilot.bin')
+    build = pico_sdk.build('all', target='pico-sdk_build/%s.bin' % self.env.RP_OUTPUT_NAME)
     build.post()
 
     build.cmake_build_task.set_run_after(self.link_task)

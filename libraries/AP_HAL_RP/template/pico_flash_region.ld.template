@@ -1,0 +1,1 @@
+FLASH(rx) : ORIGIN = {flash_origin}, LENGTH = {flash_length}

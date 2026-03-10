@@ -47,6 +47,18 @@ set(HAL_BUILD "${ARDUPILOT_LIB}/..")
 set(FILESYSTEM_DIR "${ARDUPILOT_LIBRARIES_DIR}/AP_Filesystem")
 set(LITTLE_FS_DIR "${ARDUPILOT_ROOT}/modules/littlefs")
 
+if(NOT DEFINED ARDUPILOT_CMD)
+    set(ARDUPILOT_CMD "none")
+endif()
+if(NOT DEFINED ARDUPILOT_OUTPUT_NAME)
+    set(ARDUPILOT_OUTPUT_NAME "ardupilot")
+endif()
+
+set(IS_BOOTLOADER FALSE)
+if(${ARDUPILOT_CMD} STREQUAL "bootloader")
+    set(IS_BOOTLOADER TRUE)
+endif()
+
 add_library(littlefs STATIC
     ${LITTLE_FS_DIR}/lfs.c
     ${LITTLE_FS_DIR}/lfs_util.c
@@ -58,58 +70,60 @@ target_include_directories(littlefs PUBLIC
     ${ARDUPILOT_LIBRARIES_DIR}/AP_HAL
 )
 
-add_library(AP_HAL_RP STATIC
-    ${HAL_SRC}/AnalogIn.cpp
-    ${HAL_SRC}/GPIO.cpp
-    ${HAL_SRC}/Flash.cpp
-    ${HAL_SRC}/Scheduler.cpp
-    ${HAL_SRC}/Semaphores.cpp
-    ${HAL_SRC}/UARTDriver.cpp
-    ${HAL_SRC}/USBSerialDriver.cpp
-    ${HAL_SRC}/SPIDevice.cpp
-    ${HAL_SRC}/I2CDevice.cpp
-    ${HAL_SRC}/WSPIDevice.cpp
-    ${HAL_SRC}/NAND_PIO_Driver.cpp
-    ${HAL_SRC}/RCInput.cpp
-    ${HAL_SRC}/RCOutput.cpp
-    ${HAL_SRC}/Storage.cpp
-    ${HAL_SRC}/system.cpp
-    ${HAL_SRC}/Util.cpp
-    ${HAL_SRC}/HAL_RP_Class.cpp
-    ${HAL_SRC}/LED.cpp
-)
+if(NOT IS_BOOTLOADER)
+    add_library(AP_HAL_RP STATIC
+        ${HAL_SRC}/AnalogIn.cpp
+        ${HAL_SRC}/GPIO.cpp
+        ${HAL_SRC}/Flash.cpp
+        ${HAL_SRC}/Scheduler.cpp
+        ${HAL_SRC}/Semaphores.cpp
+        ${HAL_SRC}/UARTDriver.cpp
+        ${HAL_SRC}/USBSerialDriver.cpp
+        ${HAL_SRC}/SPIDevice.cpp
+        ${HAL_SRC}/I2CDevice.cpp
+        ${HAL_SRC}/WSPIDevice.cpp
+        ${HAL_SRC}/NAND_PIO_Driver.cpp
+        ${HAL_SRC}/RCInput.cpp
+        ${HAL_SRC}/RCOutput.cpp
+        ${HAL_SRC}/Storage.cpp
+        ${HAL_SRC}/system.cpp
+        ${HAL_SRC}/Util.cpp
+        ${HAL_SRC}/HAL_RP_Class.cpp
+        ${HAL_SRC}/LED.cpp
+    )
 
-target_include_directories(AP_HAL_RP PUBLIC
-    ${HAL_SRC}
-    ${HAL_SRC}/hwdef
-    ${HAL_BUILD}
-    ${HAL_BUILD}/${PATH_TO_TARGET}
-    ${HAL_BUILD}/libraries/GCS_MAVLink/
-    ${ARDUPILOT_LIBRARIES_DIR}
-    ${ARDUPILOT_LIBRARIES_DIR}/AP_Common/missing
-    ${ARDUPILOT_LIBRARIES_DIR}/AP_HAL
-    ${ARDUPILOT_ROOT}
-)
+    target_include_directories(AP_HAL_RP PUBLIC
+        ${HAL_SRC}
+        ${HAL_SRC}/hwdef
+        ${HAL_BUILD}
+        ${HAL_BUILD}/${PATH_TO_TARGET}
+        ${HAL_BUILD}/libraries/GCS_MAVLink/
+        ${ARDUPILOT_LIBRARIES_DIR}
+        ${ARDUPILOT_LIBRARIES_DIR}/AP_Common/missing
+        ${ARDUPILOT_LIBRARIES_DIR}/AP_HAL
+        ${ARDUPILOT_ROOT}
+    )
 
-target_link_libraries(AP_HAL_RP PUBLIC
-    pico_stdlib
-    pico_multicore
-    pico_stdio_usb
-    hardware_spi
-    hardware_i2c
-    hardware_dma
-    hardware_pio
-    hardware_interp
-    hardware_timer
-    hardware_watchdog
-    hardware_clocks
-    hardware_flash
-    hardware_powman
-    hardware_adc
-    FreeRTOS-Kernel
-    FreeRTOS-Kernel-Heap4
-    littlefs
-)
+    target_link_libraries(AP_HAL_RP PUBLIC
+        pico_stdlib
+        pico_multicore
+        pico_stdio_usb
+        hardware_spi
+        hardware_i2c
+        hardware_dma
+        hardware_pio
+        hardware_interp
+        hardware_timer
+        hardware_watchdog
+        hardware_clocks
+        hardware_flash
+        hardware_powman
+        hardware_adc
+        FreeRTOS-Kernel
+        FreeRTOS-Kernel-Heap4
+        littlefs
+    )
+endif()
 
 # Add executable with source files
 add_executable(${CMAKE_PROJECT_NAME}
@@ -117,21 +131,48 @@ add_executable(${CMAKE_PROJECT_NAME}
 )
 
 set_target_properties(${CMAKE_PROJECT_NAME} PROPERTIES SUFFIX ".elf")
+set_target_properties(${CMAKE_PROJECT_NAME} PROPERTIES OUTPUT_NAME ${ARDUPILOT_OUTPUT_NAME})
 
-target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE AP_HAL_RP)
+if(NOT IS_BOOTLOADER)
+    target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE AP_HAL_RP)
+endif()
 
 target_link_options(${CMAKE_PROJECT_NAME} PRIVATE
     "LINKER:--allow-multiple-definition"
     "LINKER:--gc-sections"
 )
 
-if(NOT DEFINED ARDUPILOT_CMD)
-    set(ARDUPILOT_CMD "none")
+set(AP_MEMMAP_SCRIPT "${CMAKE_CURRENT_LIST_DIR}/application_memmap_default.ld")
+set(AP_PICO_FLASH_REGION "${CMAKE_CURRENT_LIST_DIR}/application_pico_flash_region.ld")
+if(WAF_BUILD_TARGET MATCHES "(^|/)bootloader($|/)")
+    set(AP_MEMMAP_SCRIPT "${CMAKE_CURRENT_LIST_DIR}/bootloader_memmap_default.ld")
+    set(AP_PICO_FLASH_REGION "${CMAKE_CURRENT_LIST_DIR}/bootloader_pico_flash_region.ld")
 endif()
 
-if(ARDUPILOT_CMD STREQUAL "none" AND NOT WAF_BUILD_TARGET MATCHES "^(examples|tool)/")
-    message(FATAL_ERROR "ARDUPILOT_CMD is not set to a vehicle target. Run waf with a vehicle target (for example: ./waf copter --board <board>).")
+if(NOT EXISTS "${AP_MEMMAP_SCRIPT}")
+    message(FATAL_ERROR "Generated memmap script not found: ${AP_MEMMAP_SCRIPT}")
 endif()
+if(NOT EXISTS "${AP_PICO_FLASH_REGION}")
+    message(FATAL_ERROR "Generated pico flash region file not found: ${AP_PICO_FLASH_REGION}")
+endif()
+
+set(AP_LINKER_SCRIPT "${AP_MEMMAP_SCRIPT}")
+
+# Ensure GNU ld can resolve INCLUDEd scripts from CMAKE_CURRENT_LIST_DIR
+# (for example application_pico_flash_region.ld / bootloader_pico_flash_region.ld).
+if(COMMAND pico_set_linker_script)
+    pico_set_linker_script(${CMAKE_PROJECT_NAME} "${AP_LINKER_SCRIPT}")
+    target_link_options(${CMAKE_PROJECT_NAME} PRIVATE
+        "LINKER:-L${CMAKE_CURRENT_LIST_DIR}"
+    )
+else()
+    target_link_options(${CMAKE_PROJECT_NAME} PRIVATE
+        "LINKER:-L${CMAKE_CURRENT_LIST_DIR}"
+        "LINKER:-T${AP_LINKER_SCRIPT}"
+    )
+endif()
+message(STATUS "Using linker script: ${AP_LINKER_SCRIPT}")
+message(STATUS "Using pico flash region file: ${AP_PICO_FLASH_REGION}")
 
 # Generate PIO headers
 
@@ -198,6 +239,47 @@ ELSEIF(${ARDUPILOT_CMD} STREQUAL "sub")
     message("Building for submarine")
     target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE "${ARDUPILOT_BIN}/libardusub.a")
     target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE "${ARDUPILOT_LIB}/libArduSub_libs.a")
+ELSEIF(${ARDUPILOT_CMD} STREQUAL "bootloader")
+    message("Building for bootloader")
+
+    set(BOOTLOADER_LIBS)
+    if(WAF_BUILD_TARGET MATCHES "^bootloader/")
+        string(REPLACE "/" ";" BOOTLOADER_TARGET_PARTS "${WAF_BUILD_TARGET}")
+        list(GET BOOTLOADER_TARGET_PARTS 1 BOOTLOADER_PROGRAM_NAME)
+        list(APPEND BOOTLOADER_LIBS "${ARDUPILOT_LIB}/bootloader/lib${BOOTLOADER_PROGRAM_NAME}.a")
+    elseif(EXISTS "${ARDUPILOT_LIB}/bootloader/libAP_Bootloader_RP.a")
+        list(APPEND BOOTLOADER_LIBS "${ARDUPILOT_LIB}/bootloader/libAP_Bootloader_RP.a")
+    elseif(EXISTS "${ARDUPILOT_LIB}/bootloader/libAP_Bootloader.a")
+        list(APPEND BOOTLOADER_LIBS "${ARDUPILOT_LIB}/bootloader/libAP_Bootloader.a")
+    else()
+        file(GLOB BOOTLOADER_LIBS "${ARDUPILOT_LIB}/bootloader/lib*.a")
+    endif()
+
+    if(NOT BOOTLOADER_LIBS)
+        message(FATAL_ERROR "No bootloader static libraries found in ${ARDUPILOT_LIB}/bootloader")
+    endif()
+
+    message("Bootloader archives: ${BOOTLOADER_LIBS}")
+    target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE ${BOOTLOADER_LIBS})
+    target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE
+        pico_stdlib
+        pico_multicore
+        pico_stdio_usb
+        hardware_spi
+        hardware_i2c
+        hardware_dma
+        hardware_pio
+        hardware_interp
+        hardware_timer
+        hardware_watchdog
+        hardware_clocks
+        hardware_flash
+        hardware_powman
+        hardware_adc
+        FreeRTOS-Kernel
+        FreeRTOS-Kernel-Heap4
+        littlefs
+    )
 ENDIF()
 
 add_custom_target(showinc ALL
@@ -220,6 +302,13 @@ target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
 # UART stdio is disabled because AP_HAL_RP handles UART transport directly.
 pico_enable_stdio_usb(${CMAKE_PROJECT_NAME} 1)
 pico_enable_stdio_uart(${CMAKE_PROJECT_NAME} 0)
+
+if(NOT IS_BOOTLOADER)
+    # if we use bootloader and moved flash addresses, 
+    # picotool converts elf to uf2 not correctly,
+    # so we just disable convertion to uf2
+    set(PICO_NO_UF2 1)
+endif()
 
 # Add the standard Pico build steps to create UF2
 pico_add_extra_outputs(${CMAKE_PROJECT_NAME})

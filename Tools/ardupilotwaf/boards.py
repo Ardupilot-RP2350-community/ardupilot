@@ -713,7 +713,12 @@ def is_board_based(board, cls):
 def get_ap_periph_boards():
     '''Add AP_Periph boards based on existence of periph keyword in hwdef.dat or board name'''
     list_ap = [s for s in list(_board_classes.keys()) if "periph" in s]
-    dirname, dirlist, filenames = next(os.walk('libraries/AP_HAL_ChibiOS/hwdef'))
+    hwdef_root = 'libraries/AP_HAL_ChibiOS/hwdef'
+    if not os.path.isdir(hwdef_root):
+        return list_ap
+
+    dirname, dirlist, filenames = next(os.walk(hwdef_root))
+
     for d in dirlist:
         if d in list_ap:
             continue

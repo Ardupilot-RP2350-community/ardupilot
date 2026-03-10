@@ -20,7 +20,8 @@ sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), '../..
 
 class RP2350HWDef(hwdef.HWDef):
 
-    def __init__(self, **kwargs):
+    def __init__(self, bootloader, **kwargs):
+        self.bootloader = bootloader
         super(RP2350HWDef, self).__init__(**kwargs)
         # lists of RP2350_SPIBUS buses and RP2350_SPIDEV devices
         self.rp2350_spibus = []
@@ -46,6 +47,7 @@ class RP2350HWDef(hwdef.HWDef):
             if d.startswith('define '):
                 f.write('#define %s\n' % d[7:])
 
+        self.write_mcu_config(f)
         self.write_SPI_config(f)
         self.write_I2C_config(f)
         self.write_IMU_config(f)
@@ -62,7 +64,15 @@ class RP2350HWDef(hwdef.HWDef):
         self.all_lines.append(line)
         self.alllines.append(line)
 
+        if line.startswith('define '):
+            parts = line[7:].split()
+            if len(parts) >= 2:
+                self.config[parts[0]] = parts[1:]
+
         a = shlex.split(line, posix=False)
+        if not a:
+            return
+
         if a[0] == 'RP2350_I2CBUS':
             self.process_line_rp2350_i2cbus(line, depth, a)
 
@@ -145,6 +155,40 @@ class RP2350HWDef(hwdef.HWDef):
     def process_line_rp2350_rcout(self, line, depth, a):
         self.rp2350_rcout.append(a[1:])
 
+    def is_bootloader_fw(self):
+        return self.bootloader
+
+    def get_config(self, name, column=0, required=True, default=None, type=None, spaces=False, aslist=False):
+        '''get a value from config dictionary'''
+        if name not in self.config:
+            if required and default is None:
+                self.error("missing required value %s in hwdef.dat" % name)
+            return default
+        if aslist:
+            return self.config[name]
+        if len(self.config[name]) < column + 1:
+            if not required:
+                return None
+            self.error("missing required value %s in hwdef.dat (column %u)" %
+                       (name, column))
+        if spaces:
+            ret = ' '.join(self.config[name][column:])
+        else:
+            ret = self.config[name][column]
+
+        if type is not None:
+            if type == int and ret.startswith('0x'):
+                try:
+                    ret = int(ret, 16)
+                except Exception:
+                    self.error("Badly formed config value %s (got %s)" % (name, ret))
+            else:
+                try:
+                    ret = type(ret)
+                except Exception:
+                    self.error("Badly formed config value %s (got %s)" % (name, ret))
+        return ret
+
     @dataclass
     class SDSPI():
         host : str
@@ -155,7 +199,7 @@ class RP2350HWDef(hwdef.HWDef):
         cs : str
 
     # RP2350_SDSPI support:
-    def process_line_esp32_sdspi(self, line, depth, a):
+    def process_line_rp2350_sdspi(self, line, depth, a):
         (host, dma_ch, mosi, miso, sclk, cs) = a[1:]
         self.rp2350_sdspi.append(self.SDSPI(host, dma_ch, mosi, miso, sclk, cs))
 
@@ -193,6 +237,20 @@ class RP2350HWDef(hwdef.HWDef):
             devlist.append(f"{{.name= \"{name}\", .bus={bus}, .device={device}, .cs={cs}, .mode={mode}, .lspeed={lowspeed}, .hspeed={highspeed}}}")  # noqa:E501
 
         self.write_device_table(f, 'SPI devices', 'HAL_RP2350_SPI_DEVICES', devlist)
+
+    def write_mcu_config(self, f):
+        '''write MCU config defines'''
+        flash_size = self.get_config('FLASH_SIZE_KB', type=int)
+        f.write('#define BOARD_FLASH_SIZE %u\n' % flash_size)
+        self.env_vars['BOARD_FLASH_SIZE'] = flash_size
+
+        flash_reserve_start = self.get_config(
+            'FLASH_RESERVE_START_KB', default=16, type=int)
+        f.write('\n// location of loaded firmware\n')
+        f.write('#define FLASH_LOAD_ADDRESS 0x%08x\n' % (0x10000000 + flash_reserve_start*1024))
+        # can be no persistent parameters if no space allocated for them
+        if not self.is_bootloader_fw() and flash_reserve_start == 0:
+            f.write('#define HAL_ENABLE_SAVE_PERSISTENT_PARAMS 0\n')
 
     def write_I2C_config(self, f):
         '''write I2C config defines'''
@@ -258,6 +316,8 @@ if __name__ == '__main__':
     parser.add_argument(
         '-D', '--outdir', type=str, default="/tmp", help='Output directory')
     parser.add_argument(
+        '--bootloader', action='store_true', default=False, help='configure for bootloader')
+    parser.add_argument(
         'hwdef', type=str, nargs='+', default=None, help='hardware definition file')
     parser.add_argument(
         '--quiet', action='store_true', default=False, help='quiet running')
@@ -266,6 +326,7 @@ if __name__ == '__main__':
 
     c = RP2350HWDef(
         outdir=args.outdir,
+        bootloader=args.bootloader,
         hwdef=args.hwdef,
         quiet=args.quiet,
     )
