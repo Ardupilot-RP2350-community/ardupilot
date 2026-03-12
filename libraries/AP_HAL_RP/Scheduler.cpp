@@ -1,5 +1,6 @@
 #include "AP_HAL_RP/Scheduler.h"
 #include "AP_Math/AP_Math.h"
+#include <cstdlib>
 #include "pico/stdlib.h"
 #include "pico/bootrom.h"
 #include "hardware/watchdog.h"
@@ -169,7 +170,7 @@ void Scheduler::thread_create_trampoline(void *ctx)
 
 uint8_t Scheduler::calculate_thread_priority(priority_base base, int8_t priority) const
 {
-   uint8_t thread_priority = IO_PRIO;
+    uint8_t thread_priority = IO_PRIO;
     static const struct {
         priority_base base;
         uint8_t p;
@@ -180,11 +181,14 @@ uint8_t Scheduler::calculate_thread_priority(priority_base base, int8_t priority
         { PRIORITY_I2C, I2C_PRIORITY},
         { PRIORITY_CAN, IO_PRIO},
         { PRIORITY_TIMER, TIMER_PRIO},
+        { PRIORITY_RCOUT, RCOUT_PRIO},
+        { PRIORITY_LED, IO_PRIO},
         { PRIORITY_RCIN, RCIN_PRIO},
         { PRIORITY_IO, IO_PRIO},
         { PRIORITY_UART, UART_PRIO},
         { PRIORITY_STORAGE, STORAGE_PRIO},
         { PRIORITY_SCRIPTING, UART_PRIO},
+        { PRIORITY_NET, IO_PRIO},
     };
     for (uint8_t i=0; i<ARRAY_SIZE(priority_map); i++) {
         if (priority_map[i].base == base) {
@@ -211,7 +215,7 @@ bool Scheduler::thread_create(AP_HAL::MemberProc proc, const char *name,
     #define EXTRA_THREAD_SPACE 1024
     uint32_t actual_stack_size = requested_stack_size+EXTRA_THREAD_SPACE;
 
-    tskTaskControlBlock* xhandle;
+    TaskHandle_t xhandle;
     BaseType_t xReturned = xTaskCreate(
         thread_create_trampoline, name, actual_stack_size, tproc, thread_priority, &xhandle);
     if (xReturned != pdPASS) {
