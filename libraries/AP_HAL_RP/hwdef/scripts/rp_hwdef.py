@@ -104,8 +104,10 @@ class RP2350HWDef(hwdef.HWDef):
                 port_instance = 'i2c1'
             else:
                 self.error(f"Unknown I2C port {port}, expected I2C0 or I2C1")
-            buslist.append(f"{{ .port={port_instance}, .sda={sda}, .scl={scl}, .speed={speed}, .internal={internal}, .soft={soft} }}")
-
+            buslist.append(
+                f"{{ .port={port_instance}, .sda={sda}, .scl={scl}, "
+                f".speed={speed}, .internal={internal}, .soft={soft} }}"
+            )
         self.write_device_table(f, "i2c buses", "HAL_RP2350_I2C_BUSES", buslist)
 
     # RP2350_SPI_BUS support:
@@ -115,7 +117,8 @@ class RP2350HWDef(hwdef.HWDef):
     def SPI_config_define_line_for_dev(self, define_name, dev, n):
         '''return a #define line for a RP2350_SPIBUS config line'''
         (host, dma_ch_tx, dma_ch_rx, mosi, miso, sclk) = dev
-        return "{{ .host={host}, .dma_ch_tx={dma_ch_tx}, .dma_ch_rx={dma_ch_rx}, .mosi={mosi}, .miso={miso}, .sclk={sclk} }},"
+        return "{{ .host={host}, .dma_ch_tx={dma_ch_tx}, " \
+        ".dma_ch_rx={dma_ch_rx}, .mosi={mosi}, .miso={miso}, .sclk={sclk} }},"
 
     def write_SPI_bus_table(self, f):
         '''write SPI bus table'''
