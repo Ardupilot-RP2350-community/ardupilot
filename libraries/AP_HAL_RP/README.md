@@ -15,6 +15,11 @@ This HAL allows ArduPilot flight control software to run on RP2040-based flight 
 - Default development board: <a href=https://github.com/bastian2001/Kolibri-FC-Hardware>Kolibri-FC</a>
 
 ## Building the Firmware
+- [Building on Linux/Ubuntu](#building-on-linuxubuntu).
+- [Building on macOS](#building-on-macos).
+- [Building on Windows](#building-on-windows).
+
+### Building on Linux/Ubuntu
 
 *Note*: Build was tested on Ubuntu 24.04 LTS
 
@@ -43,9 +48,9 @@ Tools/scripts/get_pico_sdk.sh
 configuration option. One configuration often used is the `--board` option to
 switch from one board to another one.
 
-*Note*: Build was tested on MacOs 15.0.1 (24A348)
-
 ### Building on macOS
+
+*Note*: Build was tested on MacOs 15.0.1 (24A348)
 
 1. Run the following script from the cloned ardupilot directory to install required packages:
 ```
@@ -139,6 +144,7 @@ switch from one board to another one.
       lsusb
       ```
       You should now see your USB device listed exactly as if it were plugged into a native Linux machine.
+
 ## Building the Examples
 
 This is the easiest way to create firmware that focuses only on testing a specific HAL module or library on a real flight controller.
