@@ -76,6 +76,69 @@ Tools/scripts/get_pico_sdk.sh
 configuration option. One configuration often used is the `--board` option to
 switch from one board to another one.
 
+### Building on Windows
+*Note*: Build was tested on **Windows 11**
+
+1. Install Windows Subsystem for Linux (**WSL**):
+   ```
+   wsl --set-default-version 2
+   wsl --install
+   ```
+
+2. Set memory config for the virtual environment. Open (or create, if doesn't exist) file `C:\Users\<YourUsername>\.wslconfig`, and set
+   ```
+   [wsl2]
+   memory=12GB
+   swap=16GB
+   ```
+   *Note:* Numbers *may not be optimal* in the example, you can set what is best for you system.
+
+3. Login to **Linux** environment:
+   
+   1. Press the Windows Key.
+   2. Type "Ubuntu". 
+   3. Click on the Ubuntu icon
+
+
+4. Follow all the steps described in [Building the Firmware](#building-the-firmware) section
+
+
+5. Map usb ports (required to see controller from virtual environment)
+
+   Because WSL 2 runs in a utility VM, it doesn't "see" the physical USB hardware plugged into your Windows machine by default. To access a USB device, you need to "attach" the hardware manually.
+   1. Install **usbipd-win** on Windows:
+      
+      Download and run the .msi installer from the **usbipd-win** GitHub releases page: https://github.com/dorssel/usbipd-win/releases
+   2. Install the USB Tools in Ubuntu:
+      ```
+      sudo apt update
+      sudo apt install linux-tools-virtual hwdata
+      sudo update-alternatives --install /usr/local/bin/usbip usbip `ls /usr/lib/linux-tools/*/usbip | tail -n1` 20
+      ```
+   3. Attaching a Device
+   
+      Once the software is installed, follow these steps in **PowerShell** (with **Administrator** privileges):
+      ```
+      usbipd list
+      ```
+      Find the **BUSID** of the device you want to share (e.g., `2-1`).
+   4. Bind the device:
+   
+      This tells Windows to allow the device to be shared.
+      ```
+      usbipd bind --busid <BUSID>
+      ```
+   5. Attach to WSL:
+      ```
+      usbipd attach --wsl --busid <BUSID>
+      ```
+   6. Verify in Ubuntu
+   
+      Go back to your Ubuntu terminal and run:
+      ```
+      lsusb
+      ```
+      You should now see your USB device listed exactly as if it were plugged into a native Linux machine.
 ## Building the Examples
 
 This is the easiest way to create firmware that focuses only on testing a specific HAL module or library on a real flight controller.
