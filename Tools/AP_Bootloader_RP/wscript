@@ -1,0 +1,23 @@
+# encoding: utf-8
+
+# flake8: noqa
+
+def build(bld):
+    if not bld.env.BOOTLOADER:
+        return
+
+    if bld.env.BOARD_CLASS != 'RP2350':
+        return
+
+    bld.ap_program(
+        name='ap_bootloader_rp',
+        source=[
+            'main.cpp',
+            'bl_protocol_common.cpp',
+            'platform/rp2350_platform.cpp',
+            'platform/rp2350_transport_usb_cdc.cpp',
+            'platform/rp2350_boardinfo.cpp',
+            'platform/rp2350_flash.cpp',
+        ],
+        program_groups='bootloader'
+    )

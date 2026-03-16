@@ -6,6 +6,11 @@ def build(bld):
     if not bld.env.BOOTLOADER:
         return
 
+    rp_bootloader_dir = bld.srcnode.find_dir('Tools/AP_Bootloader_RP')
+    rp_target = str(getattr(bld.env, 'RP_TARGET', '')).lower()
+    if rp_target in ('rp2350a', 'rp2350b') and rp_bootloader_dir is not None:
+        return
+
     if bld.env.EXT_FLASH_SIZE_MB:
         flashiface_lib = ['AP_HAL', 'AP_FlashIface', 'AP_HAL_Empty']
     else:

@@ -1,0 +1,44 @@
+# Example RP2350 bootloader hardware definition
+
+# target MCU
+MCU RP2350A
+
+define HAL_MCU_RP2350A_ENABLED 1
+define HAL_MCU_RP2350B_ENABLED 0
+
+# bootloader size
+define BOOTLOADER_SIZE 0x10000
+
+# bootloader timeout 5 sec
+define HAL_BOOTLOADER_TIMEOUT 5000
+
+# flash size
+define HAL_FLASH_TOTAL_SIZE 0x400000
+
+# storage offset
+define HAL_FLASH_STORAGE_OFFSET 0x3FC000
+
+# storage size
+define HAL_FLASH_STORAGE_NUM_PAGES 4
+
+# Keep board id aligned with hwdef.dat and board_types mapping used by MP/APJ packaging
+# APJ_BOARD_ID must match main hwdef.dat
+define APJ_BOARD_ID AP_HW_PICO2W-PILOT
+
+# total internal flash
+define FLASH_SIZE_KB 4096
+
+# bootloader is installed from flash base
+define FLASH_RESERVE_START_KB 0
+
+# reserve for storage
+define FLASH_RESERVE_END_KB 16
+
+# application image start offset (bootloader-protected prefix)
+define FLASH_BOOTLOADER_LOAD_KB 128
+
+# optional extra gap between bootloader and app
+define APP_START_OFFSET_KB 0
+
+# bootloader comms ordering (USB CDC first for Mission Planner)
+define SERIAL_ORDER OTG1 UART0
