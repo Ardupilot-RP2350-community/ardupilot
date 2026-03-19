@@ -22,12 +22,17 @@ define HAL_SERIAL3_DRIVER_ENABLED 0
 define HAL_SPI_DEVICE_DRIVER_ENABLED 1
 define HAL_I2C_DEVICE_DRIVER_ENABLED 1
 
+# USB CDC 0 is used for consose
+# USB CDC 1 is used for Mavlink
+
+# MavLink via USB CDC
+define HAL_USB_MAVLINK_SERIAL_NUM 4
+define HAL_SERIAL4_DRIVER_ENABLED 1
+
 # Debug options
 # Console transport: 0=UART (default), 1=USB CDC
 # Set to 1 to route hal.console to USB virtual COM port.
-define HAL_RP_CONSOLE_USB_CDC 0
-define HAL_RP_USB_CDC_CONNECT_TIMEOUT_MS 100
-define HAL_RP_USB_CDC_FALLBACK_TO_UART0 1
+define HAL_RP_CONSOLE_USB_CDC 1
 
 define SCHEDDEBUG 1
 
