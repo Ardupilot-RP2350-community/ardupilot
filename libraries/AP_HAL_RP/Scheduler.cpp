@@ -1,5 +1,6 @@
 #include "AP_HAL_RP/Scheduler.h"
 #include "AP_Math/AP_Math.h"
+#include "AP_HAL_RP_Private.h"
 #include <cstdlib>
 #include "pico/stdlib.h"
 #include "pico/bootrom.h"
@@ -76,6 +77,14 @@ void Scheduler::init() {
         DEV_PRINTF("FAILED to create task _io_task\n");
     }
     vTaskCoreAffinitySet(_io_task_handle, CORE_1);
+
+    if (xTaskCreate(_usb_device_task, "Ardu_USB", USB_SS, this, USB_PRIO, &_usb_device_task_handle) == pdPASS) {
+        DEV_PRINTF("OK created task _usb_device_task\n");
+    }
+    else {
+        DEV_PRINTF("FAILED to create task _usb_device_task\n");
+    }
+    vTaskCoreAffinitySet(_usb_device_task_handle, CORE_1);
 
 #if 0
     // Create a task for storage on Core 1
@@ -167,6 +176,23 @@ void Scheduler::_uart_task(void *pvParameters) {
         if (hal.console) {
             hal.console->_timer_tick();
         }
+        sched->delay(1);
+    }
+}
+
+void Scheduler::_usb_device_task(void *pvParameters)
+{
+    Scheduler *sched = (Scheduler *)pvParameters;
+
+    while (!sched->_initialized) {
+        sched->delay(10);
+    }
+
+    const HAL_RP& rp_hal = static_cast<const HAL_RP&>(hal);
+    rp_hal.init_usb_cdc_drivers();
+
+    while (true) {
+        RP::USBSerialDriver::backend_task();
         sched->delay(1);
     }
 }
