@@ -40,6 +40,7 @@ public:
     static const int MIN_PRIO     = tskIDLE_PRIORITY + 1;
     static const int MAIN_PRIO    = MAX_PRIO - 2;   // Main loop (Core 0)
     static const int TIMER_PRIO   = MAX_PRIO;       // Timers (must be higher than MAIN for accuracy)
+    static const int USB_PRIO     = MAX_PRIO;       // USB CDC
     static const int UART_PRIO    = MAX_PRIO - 1;   // UART (fast output, but below the timer)
     static const int SPI_PRIORITY = MAX_PRIO - 3;   // Fast sensors (IMU)
     static const int RCOUT_PRIO   = MAX_PRIO - 15;  // PWM output
@@ -58,12 +59,14 @@ public:
     static const int RCOUT_SS     = 512;  // 2 KB
     static const int IO_SS        = 1024; // 4 KB
     static const int STORAGE_SS   = 1024; // 4 KB
+    static const int USB_SS       = 1024; // 4 KB
 
 private:
     static void _main_task(void *pvParameters);
     static void _timer_task(void *pvParameters);
     static void _io_task(void *pvParameters);
     static void _uart_task(void *pvParameters);
+    static void _usb_device_task(void *pvParameters);
 
     static void thread_create_trampoline(void *ctx);
 
@@ -82,6 +85,7 @@ private:
     TaskHandle_t _timer_task_handle;
     TaskHandle_t _io_task_handle;
     TaskHandle_t _uart_task_handle;
+    TaskHandle_t _usb_device_task_handle;
 
     AP_HAL::HAL::Callbacks *_callbacks;
 

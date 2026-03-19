@@ -11,4 +11,5 @@ public:
 
     RP::NAND_PIO_Driver* get_nand_pio() const;
     RP::LED* get_led_driver() const;
+    void init_usb_cdc_drivers() const;
 };

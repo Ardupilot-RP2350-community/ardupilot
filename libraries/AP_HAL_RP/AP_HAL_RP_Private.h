@@ -15,6 +15,7 @@
 #include "WSPIDevice.h"
 #include "Storage.h"
 #include "UARTDriver.h"
+#include "USBSerialDriver.h"
 #include "Util.h"
 #include "Flash.h"
 #include "DSP.h"

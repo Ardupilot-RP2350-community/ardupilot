@@ -218,7 +218,7 @@ uint32_t UARTDriver::txspace() {
     }
     return _writebuf.space();
 }
-
+#if 0
 void UARTDriver::vprintf(const char *fmt, va_list ap) {
     if (!_initialized) {
         return;
@@ -238,10 +238,23 @@ void UARTDriver::vprintf(const char *fmt, va_list ap) {
         _write((const uint8_t *)buffer, len);
     }
 }
+#endif
+void UARTDriver::vprintf(const char *fmt, va_list ap) {
+    if (!_initialized) {
+        return;
+    }
+
+    char buffer[256];
+
+    int n = hal.util->vsnprintf(buffer, sizeof(buffer), fmt, ap);
+    if (n > 0) {
+        size_t len = MIN((size_t)n, sizeof(buffer)-1);
+        _write((const uint8_t *)buffer, len);
+    }
+}
 
 size_t UARTDriver::write(uint8_t c) {
-    if (!_initialized) return 0;
-    return _writebuf.write(&c, 1);
+    return _write(&c, 1);
 }
 
 size_t UARTDriver::write(const uint8_t *buffer, size_t size) {

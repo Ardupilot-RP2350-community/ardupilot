@@ -5,7 +5,7 @@
 
 class RP::USBSerialDriver : public AP_HAL::UARTDriver {
 public:
-    USBSerialDriver();
+    explicit USBSerialDriver(uint8_t interface_num = 0);
 
     bool is_initialized() override { return _initialized; }
     bool tx_pending() override;
@@ -23,6 +23,10 @@ public:
 
     void _timer_tick() override;
 
+    bool is_usb_connected() const;
+
+    static void backend_task();
+
 protected:
     void _begin(uint32_t baud, uint16_t rxSpace, uint16_t txSpace) override;
     void _end() override;
@@ -38,6 +42,7 @@ private:
     void _poll_rx();
     void _flush_tx();
 
+    const uint8_t _interface_num;
     uint32_t _baudrate;
     bool _initialized;
     ByteBuffer _readbuf;
