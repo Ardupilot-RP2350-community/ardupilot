@@ -27,11 +27,31 @@ static USBSerialDriver usbConsoleDriver(0);
 static USBSerialDriver usbMavlinkDriver(1);
 
 #if defined(HAL_SERIAL2_DRIVER_ENABLED) && HAL_SERIAL2_DRIVER_ENABLED == 1
-static UARTDriver serial2Driver;
+static PIOSerialDriver serial2Driver(PIO_UART, UART2_TX, UART2_RX);
 #endif
 
 #if defined(HAL_SERIAL3_DRIVER_ENABLED) && HAL_SERIAL3_DRIVER_ENABLED == 1
-static UARTDriver serial3Driver;
+static PIOSerialDriver serial3Driver(PIO_UART, UART3_TX, UART3_RX);
+#endif
+
+#if defined(HAL_SERIAL5_DRIVER_ENABLED) && HAL_SERIAL5_DRIVER_ENABLED == 1
+static PIOSerialDriver serial5Driver(PIO_UART, UART5_TX, UART5_RX);
+#endif
+
+#if defined(HAL_SERIAL6_DRIVER_ENABLED) && HAL_SERIAL6_DRIVER_ENABLED == 1
+static PIOSerialDriver serial6Driver(PIO_UART, UART6_TX, UART6_RX);
+#endif
+
+#if defined(HAL_SERIAL7_DRIVER_ENABLED) && HAL_SERIAL7_DRIVER_ENABLED == 1
+static PIOSerialDriver serial7Driver(PIO_UART, UART7_TX, UART7_RX);
+#endif
+
+#if defined(HAL_SERIAL8_DRIVER_ENABLED) && HAL_SERIAL8_DRIVER_ENABLED == 1
+static PIOSerialDriver serial8Driver(PIO_UART, UART8_TX, UART8_RX);
+#endif
+
+#if defined(HAL_SERIAL9_DRIVER_ENABLED) && HAL_SERIAL9_DRIVER_ENABLED == 1
+static PIOSerialDriver serial9Driver(PIO_UART, UART9_TX, UART9_RX);
 #endif
 
 #if defined(HAL_SPI_DEVICE_DRIVER_ENABLED) && HAL_SPI_DEVICE_DRIVER_ENABLED == 1
@@ -101,11 +121,31 @@ HAL_RP::HAL_RP() :
 #else
         nullptr,
 #endif
-        nullptr,            /* no SERIAL5 */
-        nullptr,            /* no SERIAL6 */
-        nullptr,            /* no SERIAL7 */
-        nullptr,            /* no SERIAL8 */
-        nullptr,            /* no SERIAL9 */
+#if defined(HAL_SERIAL5_DRIVER_ENABLED) && HAL_SERIAL5_DRIVER_ENABLED == 1
+        &serial5Driver,
+#else
+        nullptr,
+#endif
+#if defined(HAL_SERIAL6_DRIVER_ENABLED) && HAL_SERIAL6_DRIVER_ENABLED == 1
+        &serial6Driver,
+#else
+        nullptr,
+#endif
+#if defined(HAL_SERIAL7_DRIVER_ENABLED) && HAL_SERIAL7_DRIVER_ENABLED == 1
+        &serial7Driver,
+#else
+        nullptr,
+#endif
+#if defined(HAL_SERIAL8_DRIVER_ENABLED) && HAL_SERIAL8_DRIVER_ENABLED == 1
+        &serial8Driver,
+#else
+        nullptr,
+#endif
+#if defined(HAL_SERIAL9_DRIVER_ENABLED) && HAL_SERIAL9_DRIVER_ENABLED == 1
+        &serial9Driver,
+#else
+        nullptr,
+#endif
 #if defined(HAL_I2C_DEVICE_DRIVER_ENABLED) && HAL_I2C_DEVICE_DRIVER_ENABLED == 1
         &i2cDeviceManager,
 #else
