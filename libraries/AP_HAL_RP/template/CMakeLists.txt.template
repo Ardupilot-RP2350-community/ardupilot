@@ -68,6 +68,7 @@ add_library(AP_HAL_RP STATIC
     ${HAL_SRC}/Semaphores.cpp
     ${HAL_SRC}/UARTDriver.cpp
     ${HAL_SRC}/USBSerialDriver.cpp
+    ${HAL_SRC}/PIOSerialDriver.cpp
     ${HAL_SRC}/SPIDevice.cpp
     ${HAL_SRC}/I2CDevice.cpp
     ${HAL_SRC}/WSPIDevice.cpp

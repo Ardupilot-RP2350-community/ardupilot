@@ -20,3 +20,4 @@
 #include "Flash.h"
 #include "DSP.h"
 #include "NAND_PIO_Driver.h"
+#include "PIOSerialDriver.h"

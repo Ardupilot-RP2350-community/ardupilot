@@ -21,6 +21,7 @@ namespace RP {
     class Storage;
     class UARTDriver;
     class USBSerialDriver;
+    class PIOSerialDriver;
     class Util;
     class Flash;
     class Semaphore;
