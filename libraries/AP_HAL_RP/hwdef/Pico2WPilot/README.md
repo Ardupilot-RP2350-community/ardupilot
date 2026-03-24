@@ -8,5 +8,10 @@ TODO
 
 ## Build
 
-`./waf configure --board Pico2WPilot`
-`./waf copter`
+```bash
+./waf configure --board Pico2WPilot
+```
+
+```bash
+./waf copter
+```
