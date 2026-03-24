@@ -4,7 +4,7 @@ ArduPilot Hardware Abstraction Layer (HAL) for Raspberry Pi RP series MCUs.
 
 ## Overview
 
-This HAL allows ArduPilot flight control software to run on RP2040-based flight controllers, utilizing the Raspberry Pi Pico C/C++ SDK and its built-in FreeRTOS support.
+This HAL allows ArduPilot flight control software to run on RP2350-based flight controllers, utilizing the Raspberry Pi Pico C/C++ SDK and its built-in FreeRTOS support.
 
 ## Features
 
@@ -215,8 +215,8 @@ HAL examples are located in the libraries/AP_HAL/examples folder.
 
 ## Hardware Definition (hwdef)
 
-The configuration for Input/Output (GPIO) pins, SPI/I2C/UART buses, and sensors is defined in the hwdef.dat files for each board, located in the libraries/AP_HAL_RP2040/hwdef/ subdirectory.
+The configuration for Input/Output (GPIO) pins, SPI/I2C/UART buses, and sensors is defined in the hwdef.dat files for each board, located in the libraries/AP_HAL_RP/hwdef/ subdirectory.
 
 ## Contributing
 
-Bug fixes, improvements, and support for new RP2040-based flight controllers are welcome. Please refer to the ArduPilot Developer Guidelines before submitting pull requests.
+Bug fixes, improvements, and support for new RP2350-based flight controllers are welcome. Please refer to the ArduPilot Developer Guidelines before submitting pull requests.
