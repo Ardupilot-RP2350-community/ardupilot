@@ -6,10 +6,12 @@
 #include "pwm_multi.pio.h"
 #include "hardware/clocks.h"
 #include "hardware/dma.h"
+#include "hardware/gpio.h"
 #include "hardware/pio.h"
 #include "hardware/sync.h"
 #include "pico/multicore.h"
 #include "pico/platform.h"
+#include "pico/time.h"
 #include <cstring>
 
 using namespace RP;
@@ -26,6 +28,10 @@ volatile uint8_t RCOutput::_dma_busy_idx = 0;
 void RCOutput::init() {
     _instance = this;
 
+    memset(_serial_led_counts, 0, sizeof(_serial_led_counts));
+    memset(_serial_led_mode, 0, sizeof(_serial_led_mode));
+    memset(_serial_led_data, 0, sizeof(_serial_led_data));
+
     _pio_offset = pio_add_program(_pio, &pwm_multi_program);
     _sm = pio_claim_unused_sm(_pio, true);
 
@@ -33,6 +39,11 @@ void RCOutput::init() {
         pio_gpio_init(_pio, RCOUT_GPIO_BASE + i);
     }
     pio_sm_set_consecutive_pindirs(_pio, _sm, RCOUT_GPIO_BASE, MAX_CHANNELS, true);
+
+#if defined(RCOUT_SERIAL_LED_PIN)
+    pio_gpio_init(_pio, RCOUT_SERIAL_LED_PIN);
+    gpio_set_dir(RCOUT_SERIAL_LED_PIN, true);
+#endif
 
     pio_sm_config c = pwm_multi_program_get_default_config(_pio_offset);
     sm_config_set_out_pins(&c, RCOUT_GPIO_BASE, MAX_CHANNELS);
@@ -76,6 +87,134 @@ void RCOutput::init() {
     dma_channel_start(_dma_chan);
 
     DEV_PRINTF("init: 2-channel ping-pong started, res=%u\n", RCOUT_PWM_RESOLUTION);
+}
+
+bool RCOutput::set_serial_led_num_LEDs(const uint16_t chan, uint8_t num_leds, output_mode mode, uint32_t clock_mask)
+{
+    (void)clock_mask;
+    uint8_t serial_led_gpio;
+    if (!serial_led_get_gpio(chan, serial_led_gpio)) {
+        return false;
+    }
+    if (chan >= MAX_CHANNELS || num_leds == 0 || num_leds > SERIAL_LED_MAX_LEDS) {
+        return false;
+    }
+    if (mode != MODE_NEOPIXEL && mode != MODE_NEOPIXELRGB) {
+        return false;
+    }
+    _serial_led_counts[chan] = num_leds;
+    _serial_led_mode[chan] = mode;
+    memset(_serial_led_data[chan], 0, sizeof(_serial_led_data[chan]));
+    enable_ch(chan);
+    return true;
+}
+
+bool RCOutput::set_serial_led_rgb_data(const uint16_t chan, int8_t led, uint8_t red, uint8_t green, uint8_t blue)
+{
+    uint8_t serial_led_gpio;
+    if (!serial_led_get_gpio(chan, serial_led_gpio)) {
+        return false;
+    }
+    if (chan >= MAX_CHANNELS || _serial_led_counts[chan] == 0) {
+        return false;
+    }
+    if (led == -1) {
+        for (uint8_t i = 0; i < _serial_led_counts[chan]; i++) {
+            _serial_led_data[chan][i].red = red;
+            _serial_led_data[chan][i].green = green;
+            _serial_led_data[chan][i].blue = blue;
+        }
+        return true;
+    }
+    if (led < 0 || led >= _serial_led_counts[chan]) {
+        return false;
+    }
+    _serial_led_data[chan][led].red = red;
+    _serial_led_data[chan][led].green = green;
+    _serial_led_data[chan][led].blue = blue;
+    return true;
+}
+
+uint32_t RCOutput::cycles_from_ns(uint32_t ns) const
+{
+    const uint64_t clk_hz = clock_get_hz(clk_sys);
+    const uint64_t cycles = (clk_hz * ns + 999999999ULL) / 1000000000ULL;
+    return cycles == 0 ? 1U : uint32_t(cycles);
+}
+
+bool RCOutput::serial_led_get_gpio(const uint16_t chan, uint8_t &gpio) const
+{
+    if (chan >= MAX_CHANNELS) {
+        return false;
+    }
+
+#if defined(RCOUT_SERIAL_LED_PIN)
+#if defined(RCOUT_SERIAL_LED_CHAN)
+    if (chan != RCOUT_SERIAL_LED_CHAN) {
+        return false;
+    }
+#endif
+    gpio = RCOUT_SERIAL_LED_PIN;
+    return true;
+#else
+    gpio = RCOUT_GPIO_BASE + chan;
+    return true;
+#endif
+}
+
+bool RCOutput::serial_led_send_neopixel(const uint16_t chan, bool rgb_mode)
+{
+    if (chan >= MAX_CHANNELS || _serial_led_counts[chan] == 0) {
+        return false;
+    }
+    uint8_t serial_led_gpio;
+    if (!serial_led_get_gpio(chan, serial_led_gpio)) {
+        return false;
+    }
+    const uint pin = serial_led_gpio;
+    const uint32_t t0h = cycles_from_ns(350);
+    const uint32_t t1h = cycles_from_ns(700);
+    const uint32_t tbit = cycles_from_ns(1250);
+
+    uint32_t irq_state = save_and_disable_interrupts();
+    for (uint8_t i = 0; i < _serial_led_counts[chan]; i++) {
+        const SerialLED &led = _serial_led_data[chan][i];
+        uint32_t bits = rgb_mode ?
+            ((uint32_t(led.red) << 16) | (uint32_t(led.green) << 8) | led.blue) :
+            ((uint32_t(led.green) << 16) | (uint32_t(led.red) << 8) | led.blue);
+        for (uint8_t bit = 0; bit < 24; bit++) {
+            const bool one = (bits & 0x800000U) != 0;
+            const uint32_t th = one ? t1h : t0h;
+            gpio_put(pin, 1);
+            busy_wait_at_least_cycles(th);
+            gpio_put(pin, 0);
+            busy_wait_at_least_cycles(tbit - th);
+            bits <<= 1;
+        }
+    }
+    restore_interrupts(irq_state);
+    busy_wait_us_32(60);
+    return true;
+}
+
+bool RCOutput::serial_led_send(const uint16_t chan)
+{
+    uint8_t serial_led_gpio;
+    if (!serial_led_get_gpio(chan, serial_led_gpio)) {
+        return false;
+    }
+    if (chan >= MAX_CHANNELS) {
+        return false;
+    }
+
+    switch (_serial_led_mode[chan]) {
+    case MODE_NEOPIXEL:
+        return serial_led_send_neopixel(chan, false);
+    case MODE_NEOPIXELRGB:
+        return serial_led_send_neopixel(chan, true);
+    default:
+        return false;
+    }
 }
 
 void RCOutput::handle_dma_irq() {

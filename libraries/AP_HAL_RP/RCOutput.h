@@ -21,8 +21,21 @@ public:
     void     read(uint16_t* period_us, uint8_t len) override;
     void     cork(void) override { _corked = true; }
     void     push(void) override;
+    bool     set_serial_led_num_LEDs(const uint16_t chan, uint8_t num_leds, output_mode mode = MODE_PWM_NONE, uint32_t clock_mask = 0) override;
+    bool     set_serial_led_rgb_data(const uint16_t chan, int8_t led, uint8_t red, uint8_t green, uint8_t blue) override;
+    bool     serial_led_send(const uint16_t chan) override;
 
 private:
+    struct SerialLED {
+        uint8_t red;
+        uint8_t green;
+        uint8_t blue;
+    };
+
+    bool serial_led_get_gpio(const uint16_t chan, uint8_t &gpio) const;
+    bool serial_led_send_neopixel(const uint16_t chan, bool rgb_mode);
+    uint32_t cycles_from_ns(uint32_t ns) const;
+
     void update_bit_buffer();
     void handle_dma_irq();
 
@@ -31,7 +44,8 @@ private:
 
     static const uint8_t MAX_CHANNELS = RCOUT_MAX_CHANNELS;
     static const uint16_t PWM_RESOLUTION = RCOUT_PWM_RESOLUTION; // Resolution (e.g. 1 tick = 1 µs)
-    
+    static const uint8_t SERIAL_LED_MAX_LEDS = 16;
+
     uint16_t _periods[MAX_CHANNELS];
     
     int _dma_chan;
@@ -49,6 +63,9 @@ private:
     // A flag indicating whether _bit_buffer recalculation is necessary
     bool _need_update;
     bool _corked;
+    uint8_t _serial_led_counts[MAX_CHANNELS];
+    output_mode _serial_led_mode[MAX_CHANNELS];
+    SerialLED _serial_led_data[MAX_CHANNELS][SERIAL_LED_MAX_LEDS];
 
     struct DMA_ControlBlock {
         uint32_t count;
