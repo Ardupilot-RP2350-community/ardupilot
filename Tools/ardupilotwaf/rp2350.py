@@ -47,6 +47,40 @@ if not FREERTOS_KERNEL_PATH or not os.path.exists(FREERTOS_KERNEL_PATH):
 FREERTOS_KERNEL_CMAKE = os.path.join(FREERTOS_KERNEL_PATH, "portable", "Third" "Party", "GCC", "RP2040", "FreeRTOS_Kernel_import.cmake")
 PICO_SDK_IMPORT_CMAKE = os.path.join(PICO_SDK_PATH, "external", "pico_sdk_import.cmake")
 
+def apply_pico_sdk_patches(cfg, env):
+    """Applies patches to the pico-sdk library."""
+
+    def run_cmd(args, cwd=None):
+        return subprocess.run(args, cwd=cwd, capture_output=True, text=True)
+
+    patch_dir = Path(env.PICO_SDK_PATCH_DIR)
+    if not patch_dir.is_dir():
+        return
+
+    patch_files = sorted(patch_dir.glob("*.patch"))
+    if not patch_files:
+        return
+
+    for patch_file in patch_files:
+        patch_path = str(patch_file)
+        check = run_cmd(['git', '-C', env.PICO_SDK, 'apply', '--check', patch_path])
+        if check.returncode == 0:
+            apply_res = run_cmd(['git', '-C', env.PICO_SDK, 'apply', patch_path])
+            if apply_res.returncode != 0:
+                cfg.fatal(f"Failed to apply pico-sdk patch {patch_file.name}:\n{apply_res.stderr}")
+            Logs.info(f"Applied pico-sdk patch: {patch_file.name}")
+            continue
+
+        reverse_check = run_cmd(['git', '-C', env.PICO_SDK, 'apply', '--reverse', '--check', patch_path])
+        if reverse_check.returncode == 0:
+            Logs.info(f"Pico-sdk patch already applied: {patch_file.name}")
+            continue
+
+        cfg.fatal(
+            f"Patch {patch_file.name} does not apply cleanly to pico-sdk at {env.PICO_SDK}.\n"
+            f"git apply --check output:\n{check.stderr}"
+        )
+
 def generate_pico_project(env):
     """Generates the Pico project directory structure and files."""
 
@@ -225,6 +259,7 @@ def configure(cfg):
     env.AP_PROGRAM_FEATURES += ['rp2350_ap_program']
     env.FREERTOS_CONFIG_H_TEMPLATE = srcpath('libraries/AP_HAL_RP/template/FreeRTOSConfig.h.template')
     env.CMAKE_LISTS_TXT_TEMPLATE = srcpath('libraries/AP_HAL_RP/template/CMakeLists.txt.template')
+    env.PICO_SDK_PATCH_DIR = srcpath('libraries/AP_HAL_RP/patches/pico-sdk')
     env.PICO_SDK_PREFIX_REL = 'pico-sdk'
 
     env.RP_TARGET = target
@@ -242,6 +277,8 @@ def configure(cfg):
     except:
         env.PICO_SDK = cfg.srcnode.abspath()+"/modules/pico/pico-sdk"
     print("USING PICO C/C++ SDK:"+str(env.PICO_SDK))
+
+    apply_pico_sdk_patches(cfg, env)
 
     # build pioasm
     pico_sdk_path = env.PICO_SDK
