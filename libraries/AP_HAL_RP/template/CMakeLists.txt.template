@@ -17,6 +17,8 @@ set(ARCH_FLAGS "-mcpu=cortex-m33 -mthumb -mfloat-abi=hard -mfpu=fpv5-sp-d16 -g3 
 set(CMAKE_C_FLAGS "${ARCH_FLAGS}" CACHE STRING "" FORCE)
 set(CMAKE_CXX_FLAGS "${ARCH_FLAGS}" CACHE STRING "" FORCE)
 set(CMAKE_BUILD_TYPE "Debug")
+set(PICO_RUNTIME_NO_MALLOC_WRAPPERS ON CACHE BOOL
+    "Disable pico malloc/new-delete wrappers" FORCE)
 
 project({project_name} C CXX ASM)
 
@@ -122,8 +124,11 @@ set_target_properties(${CMAKE_PROJECT_NAME} PROPERTIES SUFFIX ".elf")
 target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE AP_HAL_RP)
 
 target_link_options(${CMAKE_PROJECT_NAME} PRIVATE
-    "LINKER:--allow-multiple-definition"
     "LINKER:--gc-sections"
+    "LINKER:--wrap=malloc"
+    "LINKER:--wrap=free"
+    "LINKER:--wrap=realloc"
+    "LINKER:--wrap=calloc"
 )
 
 if(NOT DEFINED ARDUPILOT_CMD)
