@@ -1655,6 +1655,9 @@ class rp2350(Board):
         # wrap malloc to ensure memory is zeroed
         # note that this also needs to be done in the CMakeLists.txt files
         env.LINKFLAGS += ['-Wl,--wrap,malloc']
+        env.LINKFLAGS += ['-Wl,--wrap,free']
+        env.LINKFLAGS += ['-Wl,--wrap,realloc']
+        env.LINKFLAGS += ['-Wl,--wrap,calloc']
 
         env.AP_PROGRAM_AS_STLIB = True
 
