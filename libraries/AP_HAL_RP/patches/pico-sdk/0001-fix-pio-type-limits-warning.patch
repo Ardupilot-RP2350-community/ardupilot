@@ -1,0 +1,25 @@
+From 231df61fa9a4cb9ce795d7d463d77a32d42c69a6 Mon Sep 17 00:00:00 2001
+From: Petro Shevchenko <shevchenko.p.i@gmail.com>
+Date: Thu, 26 Mar 2026 21:13:13 +0200
+Subject: [PATCH] fix pio type limits warning
+
+---
+ src/rp2_common/hardware_pio/include/hardware/pio_instructions.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/rp2_common/hardware_pio/include/hardware/pio_instructions.h b/src/rp2_common/hardware_pio/include/hardware/pio_instructions.h
+index e990a72..85804f9 100644
+--- a/src/rp2_common/hardware_pio/include/hardware/pio_instructions.h
++++ b/src/rp2_common/hardware_pio/include/hardware/pio_instructions.h
+@@ -148,7 +148,7 @@ static inline uint pio_encode_sideset(uint sideset_bit_count, uint value) {
+  * \return the side set bits to be ORed with an instruction encoding
+  */
+ static inline uint pio_encode_sideset_opt(uint sideset_bit_count, uint value) {
+-    valid_params_if(PIO_INSTRUCTIONS, sideset_bit_count >= 0 && sideset_bit_count <= 4);
++    valid_params_if(PIO_INSTRUCTIONS, sideset_bit_count <= 4);
+     valid_params_if(PIO_INSTRUCTIONS, value <= ((1u << sideset_bit_count) - 1));
+     return 0x1000u | value << (12u - sideset_bit_count);
+ }
+-- 
+2.43.0
+

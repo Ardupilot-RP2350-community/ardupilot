@@ -16,9 +16,11 @@
 #include <AP_HAL/AP_HAL.h>
 #include "HAL_RP_Class.h"
 #include <stdint.h>
+#include <string.h>
+#include "FreeRTOS.h"
+#include "task.h"
 #include "pico/stdlib.h"
 #include "pico/time.h"
-#include "task.h"
 
 volatile TaskHandle_t stack_overflow_task;
 volatile const char *stack_overflow_task_name;
@@ -51,7 +53,9 @@ volatile uint32_t hardfault_hint_idx0;
 volatile uint32_t hardfault_hint_idx1;
 volatile uint32_t hardfault_hint_idx2;
 
-extern "C" void hardfault_capture(uint32_t *sp, uint32_t exc_return)
+extern "C" {
+
+void hardfault_capture(uint32_t *sp, uint32_t exc_return)
 {
     hardfault_sp = (uint32_t)sp;
     hardfault_exc_return = exc_return;
@@ -118,7 +122,7 @@ extern "C" void hardfault_capture(uint32_t *sp, uint32_t exc_return)
     }
 }
 
-extern "C" __attribute__((naked)) void isr_hardfault(void)
+__attribute__((naked)) void isr_hardfault(void)
 {
     __asm volatile(
         "tst lr, #4\n"
@@ -129,7 +133,7 @@ extern "C" __attribute__((naked)) void isr_hardfault(void)
         "b hardfault_capture\n");
 }
 
-extern "C" void vApplicationStackOverflowHook(TaskHandle_t xTask, char *pcTaskName)
+void vApplicationStackOverflowHook(TaskHandle_t xTask, char *pcTaskName)
 {
     stack_overflow_task = xTask;
     stack_overflow_task_name = pcTaskName;
@@ -139,6 +143,35 @@ extern "C" void vApplicationStackOverflowHook(TaskHandle_t xTask, char *pcTaskNa
         __asm volatile("wfi");
     }
 }
+
+void* __wrap_malloc(size_t size) {
+    return pvPortMalloc(size);
+}
+
+void __wrap_free(void* ptr) {
+    vPortFree(ptr);
+}
+
+void* __wrap_calloc(size_t nmemb, size_t size) {
+    size_t total_size = nmemb * size;
+    if (size != 0 && total_size / size != nmemb) {
+        return nullptr;
+    }
+    void* ptr = pvPortMalloc(total_size);
+    if (ptr != nullptr) {
+        memset(ptr, 0, total_size);
+    }
+    return ptr;
+}
+
+void* __wrap_realloc(void* ptr, size_t size)
+{
+    (void)ptr;
+    (void)size;
+    return nullptr;
+}
+
+} // extern "C"
 
 namespace AP_HAL
 {
