@@ -149,6 +149,7 @@ void Scheduler::_io_task(void *pvParameters) {
     multicore_lockout_victim_init();
 #endif
     vTaskPrioritySet(nullptr, IO_PRIO);
+    DEV_PRINTF("_io_task started\n");
     for (;;) {
         for (uint8_t i = 0; i < sched->_num_io_procs; i++) {
             if (sched->_io_proc[i]) {
@@ -187,7 +188,7 @@ void Scheduler::_usb_device_task(void *pvParameters)
     while (!sched->_initialized) {
         sched->delay(10);
     }
-
+    DEV_PRINTF("_usb_device_task started\n");
     const HAL_RP& rp_hal = static_cast<const HAL_RP&>(hal);
     rp_hal.init_usb_cdc_drivers();
 
