@@ -111,7 +111,7 @@ private:
     float temp_sensitivity = 1.0f/333.87f; // degC/LSB
     float temp_zero = 21; // degC
     
-    float _temp_filtered;
+    float _temp_filtered {0.0f};
     float _accel_scale;
     float _fifo_accel_scale;
     float _fifo_gyro_scale;
@@ -141,8 +141,8 @@ private:
     // what rate are we generating samples into the backend for accels?
     uint16_t _accel_backend_rate_hz;
 
-    // Last status from register user control
-    uint8_t _last_stat_user_ctrl;    
+    // Last status from register user control (must be valid before _fifo_reset())
+    uint8_t _last_stat_user_ctrl {};    
 
     // buffer for fifo read
     uint8_t *_fifo_buffer;
