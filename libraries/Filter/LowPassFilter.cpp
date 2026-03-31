@@ -17,6 +17,7 @@ template <class T>
 DigitalLPF<T>::DigitalLPF() {
   // built in initialization
   output = T();
+  initialised = false;
 }
 
 // add a new raw value to the filter, retrieve the filtered result
