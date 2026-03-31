@@ -250,7 +250,7 @@ void AP_InertialSensor_Backend::apply_gyro_filters(const uint8_t instance, const
     // apply the low pass filter last to attenuate any notch induced noise
     gyro_filtered = _imu._gyro_filter[instance].apply(gyro_filtered);
 
-    // if the filtering failed in any way then reset the filters and keep the old value
+    // Reset unstable filters and fall back to raw gyro for this sample.
     if (gyro_filtered.is_nan() || gyro_filtered.is_inf()) {
         _imu._gyro_filter[instance].reset();
 #if HAL_GYROFFT_ENABLED
@@ -261,7 +261,6 @@ void AP_InertialSensor_Backend::apply_gyro_filters(const uint8_t instance, const
             notch.filter[instance].reset();
         }
 #endif
-        // Use the raw gyro so outputs don't get stuck when filters go unstable.
         gyro_filtered = gyro;
     }
 
@@ -610,10 +609,9 @@ void AP_InertialSensor_Backend::_notify_new_accel_raw_sample(uint8_t instance,
         _imu._delta_velocity_acc_dt[instance] += dt;
 
         _imu._accel_filtered[instance] = _imu._accel_filter[instance].apply(accel);
-        // Match gyro path: if the filter blows up, reset and keep last good value (then raw).
+        // Reset unstable filter and fall back to raw accel for this sample.
         if (_imu._accel_filtered[instance].is_nan() || _imu._accel_filtered[instance].is_inf()) {
             _imu._accel_filter[instance].reset();
-            // Use raw accel so outputs don't get stuck when filters go unstable.
             _imu._accel_filtered[instance] = accel;
         }
 
