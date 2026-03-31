@@ -10,7 +10,7 @@ using namespace RP;
 
 extern const AP_HAL::HAL& hal;
 
-// RP2350: blocking SPI only for bring-up (DMA coherency / ordering not yet validated).
+// Keep blocking SPI path enabled until DMA path is validated on RP2350.
 static constexpr bool rp_spi_use_dma = false;
 
 // Bus and device tables generated from hwdef.dat
@@ -311,8 +311,7 @@ bool SPIDevice::do_invensense_spi_read(uint8_t reg_byte, uint8_t *recv, uint32_t
 
     gpio_put(_desc.cs, 0);
     spi_write_blocking(bd.host, &reg_byte, 1);
-    // MicroPython clocks out reads with a dummy value on MOSI.
-    // Use 0x00 here to match typical SPI "read" semantics.
+    // Use a fixed dummy byte while clocking out MISO data.
     spi_read_blocking(bd.host, 0x00, recv, recv_len);
     gpio_put(_desc.cs, 1);
 
@@ -332,9 +331,8 @@ bool SPIDevice::transfer(const uint8_t *send, uint32_t send_len,
 
 #if CONFIG_HAL_BOARD == HAL_BOARD_RP2350
     /*
-      Match MicroPython Invensense SPI: MOSI sends address (with R/W=1), then
-      separate read phase with 0xFF dummies while CS stays low. A single
-      duplex word with 0x00 dummy can mis-clock some parts / RP SPI blocks.
+      Invensense read transactions are split into address phase then read phase
+      with CS held low across both phases.
      */
     if (send != nullptr && recv != nullptr && send_len == 1U && recv_len > 0U &&
         ((send[0] & 0x80U) != 0U)) {
