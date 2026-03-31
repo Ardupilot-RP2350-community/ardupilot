@@ -61,7 +61,7 @@ RP2350_I2CBUS I2C0 GPIO_24 GPIO_25 400*KHZ  true     false
 
 # SPI Devices
 #             Name     Bus   Device  ChipSel      Mode LoSpeed HiSpeed
-# Mode 0 (CPOL=0 CPHA=0) matches MicroPython machine.SPI default; 1MHz hi matches known-good bring-up.
+# Mode 0, 1MHz for stable SPI bring-up.
 RP2350_SPIDEV icm20649  0     0      GPIO_21      0    1*MHZ   1*MHZ
 
 # RP2350_SPIDEV flash_ext 0     0      GPIO_1       3    2*MHZ   20*MHZ
