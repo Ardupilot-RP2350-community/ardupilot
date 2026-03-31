@@ -261,7 +261,8 @@ void AP_InertialSensor_Backend::apply_gyro_filters(const uint8_t instance, const
             notch.filter[instance].reset();
         }
 #endif
-        gyro_filtered = _imu._gyro_filtered[instance];
+        // Use the raw gyro so outputs don't get stuck when filters go unstable.
+        gyro_filtered = gyro;
     }
 
 #if AP_INERTIALSENSOR_FAST_SAMPLE_WINDOW_ENABLED
@@ -609,8 +610,11 @@ void AP_InertialSensor_Backend::_notify_new_accel_raw_sample(uint8_t instance,
         _imu._delta_velocity_acc_dt[instance] += dt;
 
         _imu._accel_filtered[instance] = _imu._accel_filter[instance].apply(accel);
+        // Match gyro path: if the filter blows up, reset and keep last good value (then raw).
         if (_imu._accel_filtered[instance].is_nan() || _imu._accel_filtered[instance].is_inf()) {
             _imu._accel_filter[instance].reset();
+            // Use raw accel so outputs don't get stuck when filters go unstable.
+            _imu._accel_filtered[instance] = accel;
         }
 
         _imu.set_accel_peak_hold(instance, _imu._accel_filtered[instance]);
@@ -686,9 +690,14 @@ void AP_InertialSensor_Backend::_notify_new_delta_velocity(uint8_t instance, con
         _imu._delta_velocity_acc[instance] += accel * dt;
         _imu._delta_velocity_acc_dt[instance] += dt;
 
+        const Vector3f prev_accel_filtered = _imu._accel_filtered[instance];
         _imu._accel_filtered[instance] = _imu._accel_filter[instance].apply(accel);
         if (_imu._accel_filtered[instance].is_nan() || _imu._accel_filtered[instance].is_inf()) {
             _imu._accel_filter[instance].reset();
+            _imu._accel_filtered[instance] = prev_accel_filtered;
+            if (_imu._accel_filtered[instance].is_nan() || _imu._accel_filtered[instance].is_inf()) {
+                _imu._accel_filtered[instance] = accel;
+            }
         }
 
         _imu.set_accel_peak_hold(instance, _imu._accel_filtered[instance]);
