@@ -13,6 +13,7 @@ template <class T>
 DigitalBiquadFilter<T>::DigitalBiquadFilter() {
   _delay_element_1 = T();
   _delay_element_2 = T();
+  initialised = false;
 }
 
 template <class T>
