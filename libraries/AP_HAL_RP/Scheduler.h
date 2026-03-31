@@ -51,7 +51,7 @@ public:
 
     // Stack sizes (in words, 1 word = 4 bytes on RP2350)
     // Values increased by 20% because Cortex-M33 with FPU needs more space when switching context
-    static const int MAIN_SS      = 2048; // 8 KB
+    static const int MAIN_SS      = 3072; // 12 KB (INS init + printf need headroom on CM33)
     static const int TIMER_SS     = 1024; // 4 KB
     static const int UART_SS      = 1024; // 4 KB
     static const int DEVICE_SS    = 1536; // 6 KB (for SPI/I2C buses)
