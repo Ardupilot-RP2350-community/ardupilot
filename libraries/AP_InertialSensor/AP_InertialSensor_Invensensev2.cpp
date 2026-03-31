@@ -163,8 +163,7 @@ void AP_InertialSensor_Invensensev2::_fifo_reset()
     notify_accel_fifo_reset(accel_instance);
     notify_gyro_fifo_reset(gyro_instance);
 
-    // Fast-sampling path keeps partial sums in _accum; FIFO reset must not leave
-    // decimation state mid-frame or the next samples mis-align (bad accel / temp).
+    // Clear fast-sampling accumulators so decimation restarts on frame boundaries.
     _accum.accel.zero();
     _accum.gyro.zero();
     _accum.accel_count = 0;
@@ -386,7 +385,6 @@ bool AP_InertialSensor_Invensensev2::_accumulate(uint8_t *samples, uint8_t n_sam
 
         _temp_filtered = _temp_filter.apply(temp);
         if (isnan(_temp_filtered) || isinf(_temp_filtered)) {
-            // Filter returned invalid result; reset and fall back to current sample.
             _temp_filter.reset(temp);
             _temp_filtered = temp;
         }
@@ -476,12 +474,10 @@ bool AP_InertialSensor_Invensensev2::_accumulate_sensor_rate_sampling(uint8_t *s
         float temp = (static_cast<float>(tsum)/n_samples)*temp_sensitivity + temp_zero;
         _temp_filtered = _temp_filter.apply(temp);
         if (isnan(_temp_filtered) || isinf(_temp_filtered)) {
-            // Filter returned invalid result; reset and fall back to current sample.
             _temp_filter.reset(temp);
             _temp_filtered = temp;
         }
     } else {
-        // Do not carry partial decimation across a failed batch (e.g. temp check / FIFO reset).
         _accum.accel.zero();
         _accum.gyro.zero();
         _accum.accel_count = 0;
@@ -731,9 +727,7 @@ bool AP_InertialSensor_Invensensev2::_hardware_init(void)
     WITH_SEMAPHORE(_dev->get_semaphore());
 
 #if CONFIG_HAL_BOARD == HAL_BOARD_RP2350
-    // RP2350 bring-up: do not call setup_checked_registers(0, ...): n_allocated==0 makes
-    // set_checked_register() think the table is full (n_set==n_allocated) and misbehave.
-    // Leaving _checked.regs nullptr disables checked-register tracking safely.
+    // setup_checked_registers(0, ...) is invalid; keep checked-register tracking disabled here.
 #else
     // disabled setup of checked registers as it can't cope with bank switching
     _dev->setup_checked_registers(7, _dev->bus_type() == AP_HAL::Device::BUS_TYPE_I2C?200:20);
@@ -749,10 +743,9 @@ bool AP_InertialSensor_Invensensev2::_hardware_init(void)
 
 #if CONFIG_HAL_BOARD == HAL_BOARD_RP2350
     /*
-      RP2350: wake like MicroPython (PWR_MGMT_1 auto clock) without full chip reset,
-      but we must still do SPI-specific USER_CTRL setup — same as the main driver path.
-      Otherwise I2C/SPI arbitration breaks FIFO updates (stale accel/gyro; temp invalid),
-      and _fifo_reset() must not start from garbage _last_stat_user_ctrl.
+      Use wake path without full chip reset, but keep SPI-specific USER_CTRL setup.
+      This avoids I2C/SPI arbitration issues and ensures _last_stat_user_ctrl is valid
+      before _fifo_reset().
      */
     _last_stat_user_ctrl = _register_read(INV2REG_USER_CTRL);
 
@@ -823,9 +816,6 @@ bool AP_InertialSensor_Invensensev2::_hardware_init(void)
     _dev->set_speed(AP_HAL::Device::SPEED_HIGH);
 
     if (tries == 5) {
-        // RP2350 bring-up note: we can still communicate (valid WHOAMI)
-        // even if strict wake verification above times out due timing.
-        // Continue initialisation to allow data-path validation.
         DEV_PRINTF("INV2: wake verify timeout, continuing\n");
     }
 
