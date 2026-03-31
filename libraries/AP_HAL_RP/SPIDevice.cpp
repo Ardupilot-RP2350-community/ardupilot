@@ -10,25 +10,50 @@ using namespace RP;
 
 extern const AP_HAL::HAL& hal;
 
+// RP2350: blocking SPI only for bring-up (DMA coherency / ordering not yet validated).
+static constexpr bool rp_spi_use_dma = false;
+
 // Bus and device tables generated from hwdef.dat
 #ifdef HAL_RP2350_SPI_BUSES
 static SPIBusDesc spi_buses[] = { HAL_RP2350_SPI_BUSES };
+static constexpr uint8_t RP_SPI_BUS_COUNT = ARRAY_SIZE(spi_buses);
+#else
+static constexpr uint8_t RP_SPI_BUS_COUNT = 0;
 #endif
 
 #ifdef HAL_RP2350_SPI_DEVICES
 static SPIDeviceDesc spi_devices[] = { HAL_RP2350_SPI_DEVICES };
+static constexpr uint8_t RP_SPI_DEVICE_COUNT = ARRAY_SIZE(spi_devices);
+#else
+static constexpr uint8_t RP_SPI_DEVICE_COUNT = 0;
 #endif
 
+#ifdef HAL_RP2350_SPI_BUSES
 // Track which buses have been initialised
-static bool spi_bus_initialised[sizeof(spi_buses) / sizeof(spi_buses[0])] = {};
+static bool spi_bus_initialised[RP_SPI_BUS_COUNT];
 
 // Track DMA channels for each bus (initialized channels, -1 if not initialized)
-static int spi_dma_tx_channels[sizeof(spi_buses) / sizeof(spi_buses[0])] = {-1};
-static int spi_dma_rx_channels[sizeof(spi_buses) / sizeof(spi_buses[0])] = {-1};
+static int spi_dma_tx_channels[RP_SPI_BUS_COUNT];
+static int spi_dma_rx_channels[RP_SPI_BUS_COUNT];
+static bool spi_state_initialised;
+#endif
 
 static void init_bus(uint8_t bus)
 {
-    if (bus >= (uint8_t)(sizeof(spi_buses) / sizeof(spi_buses[0]))) {
+#ifndef HAL_RP2350_SPI_BUSES
+    (void)bus;
+    return;
+#else
+    if (!spi_state_initialised) {
+        for (uint8_t i = 0; i < RP_SPI_BUS_COUNT; i++) {
+            spi_bus_initialised[i] = false;
+            spi_dma_tx_channels[i] = -1;
+            spi_dma_rx_channels[i] = -1;
+        }
+        spi_state_initialised = true;
+    }
+
+    if (bus >= RP_SPI_BUS_COUNT) {
         return;
     }
     if (spi_bus_initialised[bus]) {
@@ -77,6 +102,7 @@ static void init_bus(uint8_t bus)
     spi_dma_rx_channels[bus] = rx_ch;
 
     spi_bus_initialised[bus] = true;
+#endif
 }
 
 SPIDevice::SPIDevice(const SPIDeviceDesc &desc) :
@@ -84,6 +110,8 @@ SPIDevice::SPIDevice(const SPIDeviceDesc &desc) :
     _speed(AP_HAL::Device::SPEED_LOW),
     _current_baud(desc.lspeed)
 {
+    set_device_bus(_desc.bus);
+    set_device_address(_desc.device);
     init_bus(_desc.bus);
 }
 
@@ -96,7 +124,10 @@ bool SPIDevice::set_speed(AP_HAL::Device::Speed speed)
 
 void SPIDevice::configure_bus()
 {
-    if (_desc.bus >= (uint8_t)(sizeof(spi_buses) / sizeof(spi_buses[0]))) {
+#ifndef HAL_RP2350_SPI_BUSES
+    return;
+#else
+    if (_desc.bus >= RP_SPI_BUS_COUNT) {
         return;
     }
 
@@ -117,19 +148,31 @@ void SPIDevice::configure_bus()
     gpio_init(_desc.cs);
     gpio_set_dir(_desc.cs, GPIO_OUT);
     gpio_put(_desc.cs, 1);
+#endif
 }
 
 bool SPIDevice::do_transfer(const uint8_t *send, uint8_t *recv, uint32_t len)
 {
+#ifndef HAL_RP2350_SPI_BUSES
+    (void)send;
+    (void)recv;
+    (void)len;
+    return false;
+#else
     if (len == 0) {
         return true;
     }
 
+    bool took_semaphore = false;
     if (!_semaphore.check_owner()) {
-        return false;
+        _semaphore.take_blocking();
+        took_semaphore = true;
     }
 
-    if (_desc.bus >= (uint8_t)(sizeof(spi_buses) / sizeof(spi_buses[0]))) {
+    if (_desc.bus >= RP_SPI_BUS_COUNT) {
+        if (took_semaphore) {
+            _semaphore.give();
+        }
         return false;
     }
 
@@ -142,8 +185,8 @@ bool SPIDevice::do_transfer(const uint8_t *send, uint8_t *recv, uint32_t len)
     // Assert CS
     gpio_put(_desc.cs, 0);
 
-    // Use DMA for transfers if channels are available
-    if (tx_ch >= 0 && rx_ch >= 0 && len > 4) {
+    // Use DMA for transfers if channels are available (optional; off on RP2350 for now)
+    if (rp_spi_use_dma && tx_ch >= 0 && rx_ch >= 0 && len > 4) {
         // Use DMA for larger transfers (threshold: 4 bytes)
         // For smaller transfers, blocking is more efficient due to DMA setup overhead
 
@@ -166,6 +209,9 @@ bool SPIDevice::do_transfer(const uint8_t *send, uint8_t *recv, uint32_t len)
                 // Too large for stack, fall back to blocking
                 spi_write_blocking(bd.host, send, len);
                 gpio_put(_desc.cs, 1);
+                if (took_semaphore) {
+                    _semaphore.give();
+                }
                 return true;
             }
         } else if (!send && recv) {
@@ -178,6 +224,9 @@ bool SPIDevice::do_transfer(const uint8_t *send, uint8_t *recv, uint32_t len)
                 // Too large for stack, fall back to blocking
                 spi_read_blocking(bd.host, 0xFF, recv, len);
                 gpio_put(_desc.cs, 1);
+                if (took_semaphore) {
+                    _semaphore.give();
+                }
                 return true;
             }
         }
@@ -224,14 +273,74 @@ bool SPIDevice::do_transfer(const uint8_t *send, uint8_t *recv, uint32_t len)
     // Deassert CS
     gpio_put(_desc.cs, 1);
 
+    if (took_semaphore) {
+        _semaphore.give();
+    }
     return true;
+#endif
 }
+
+#if CONFIG_HAL_BOARD == HAL_BOARD_RP2350
+bool SPIDevice::do_invensense_spi_read(uint8_t reg_byte, uint8_t *recv, uint32_t recv_len)
+{
+#ifndef HAL_RP2350_SPI_BUSES
+    (void)reg_byte;
+    (void)recv;
+    (void)recv_len;
+    return false;
+#else
+    if (recv_len == 0) {
+        return true;
+    }
+
+    bool took_semaphore = false;
+    if (!_semaphore.check_owner()) {
+        _semaphore.take_blocking();
+        took_semaphore = true;
+    }
+
+    if (_desc.bus >= RP_SPI_BUS_COUNT) {
+        if (took_semaphore) {
+            _semaphore.give();
+        }
+        return false;
+    }
+
+    const SPIBusDesc &bd = spi_buses[_desc.bus];
+    configure_bus();
+
+    gpio_put(_desc.cs, 0);
+    spi_write_blocking(bd.host, &reg_byte, 1);
+    // MicroPython clocks out reads with a dummy value on MOSI.
+    // Use 0x00 here to match typical SPI "read" semantics.
+    spi_read_blocking(bd.host, 0x00, recv, recv_len);
+    gpio_put(_desc.cs, 1);
+
+    if (took_semaphore) {
+        _semaphore.give();
+    }
+    return true;
+#endif
+}
+#endif // CONFIG_HAL_BOARD == HAL_BOARD_RP2350
 
 bool SPIDevice::transfer(const uint8_t *send, uint32_t send_len,
                          uint8_t *recv, uint32_t recv_len)
 {
     // Callers should prefer transfer_fullduplex(), but we handle the
     // generic semantics similarly to other HALs.
+
+#if CONFIG_HAL_BOARD == HAL_BOARD_RP2350
+    /*
+      Match MicroPython Invensense SPI: MOSI sends address (with R/W=1), then
+      separate read phase with 0xFF dummies while CS stays low. A single
+      duplex word with 0x00 dummy can mis-clock some parts / RP SPI blocks.
+     */
+    if (send != nullptr && recv != nullptr && send_len == 1U && recv_len > 0U &&
+        ((send[0] & 0x80U) != 0U)) {
+        return do_invensense_spi_read(send[0], recv, recv_len);
+    }
+#endif
 
     if ((send_len == recv_len && send == recv) || !send || !recv) {
         // simplest cases, needed for DMA-style transfers
@@ -273,15 +382,24 @@ SPIDevice::register_periodic_callback(uint32_t,
 
 bool SPIDevice::clock_pulse(uint32_t len)
 {
+#ifndef HAL_RP2350_SPI_BUSES
+    (void)len;
+    return false;
+#else
     if (len == 0) {
         return true;
     }
 
+    bool took_semaphore = false;
     if (!_semaphore.check_owner()) {
-        return false;
+        _semaphore.take_blocking();
+        took_semaphore = true;
     }
 
-    if (_desc.bus >= (uint8_t)(sizeof(spi_buses) / sizeof(spi_buses[0]))) {
+    if (_desc.bus >= RP_SPI_BUS_COUNT) {
+        if (took_semaphore) {
+            _semaphore.give();
+        }
         return false;
     }
 
@@ -298,14 +416,18 @@ bool SPIDevice::clock_pulse(uint32_t len)
         spi_write_blocking(bd.host, &dummy, 1);
     }
 
+    if (took_semaphore) {
+        _semaphore.give();
+    }
     return true;
+#endif
 }
 
 AP_HAL::SPIDevice *
 SPIDeviceManager::get_device_ptr(const char *name)
 {
 #ifdef HAL_RP2350_SPI_DEVICES
-    for (uint8_t i = 0; i < (uint8_t)(sizeof(spi_devices) / sizeof(spi_devices[0])); i++) {
+    for (uint8_t i = 0; i < RP_SPI_DEVICE_COUNT; i++) {
         if (strcmp(spi_devices[i].name, name) == 0) {
             return NEW_NOTHROW SPIDevice(spi_devices[i]);
         }

@@ -93,6 +93,10 @@ public:
 
 private:
     bool do_transfer(const uint8_t *send, uint8_t *recv, uint32_t len);
+#if CONFIG_HAL_BOARD == HAL_BOARD_RP2350
+    // Invensense / ICM SPI: write address (read bit set), then clock MISO with 0xFF (MicroPython pattern).
+    bool do_invensense_spi_read(uint8_t reg_byte, uint8_t *recv, uint32_t recv_len);
+#endif
     void configure_bus();
 
     SPIDeviceDesc           _desc;
