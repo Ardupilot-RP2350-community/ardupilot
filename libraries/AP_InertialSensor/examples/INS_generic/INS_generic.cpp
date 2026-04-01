@@ -83,7 +83,7 @@ void loop(void)
 
     // read in user input
     while (hal.console->available()) {
-        user_input = hal.console->read();
+        user_input = 't'; //hal.console->read();
 
         if (user_input == 'd' || user_input == 'D') {
             display_offsets_and_scaling();
@@ -152,6 +152,9 @@ static void run_test()
         if (counter++ % 50 != 0) {
             continue;
         }
+
+        // Small pause to make UART output easier to read.
+        hal.scheduler->delay(20);
 
         // loop and print each sensor
         for (uint8_t ii = 0; ii < ins_count; ii++) {
