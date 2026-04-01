@@ -2,6 +2,8 @@
 
 #include <AP_HAL/AP_HAL.h>
 #include <string.h>
+#include "FreeRTOS.h"
+#include "timers.h"
 
 #include "hardware/dma.h"
 #include "hardware/spi.h"
@@ -371,11 +373,53 @@ bool SPIDevice::transfer_fullduplex(const uint8_t *send, uint8_t *recv,
 }
 
 AP_HAL::Device::PeriodicHandle
-SPIDevice::register_periodic_callback(uint32_t,
-                                      AP_HAL::Device::PeriodicCb)
+SPIDevice::register_periodic_callback(uint32_t period_usec,
+                                      AP_HAL::Device::PeriodicCb cb)
 {
-    // No dedicated device-thread support yet on RP HAL.
-    return nullptr;
+    struct PeriodicCallbackInfo {
+        AP_HAL::Device::PeriodicCb cb;
+    };
+
+    auto periodic_timer_callback = [](TimerHandle_t xTimer) {
+        auto *info = static_cast<PeriodicCallbackInfo *>(pvTimerGetTimerID(xTimer));
+        if (info && info->cb) {
+            info->cb();
+        }
+    };
+
+    if (!cb) {
+        return nullptr;
+    }
+
+    // FreeRTOS timers run in tick resolution (typically 1ms).
+    TickType_t period_ticks = (period_usec + 999U) / 1000U;
+    if (period_ticks == 0) {
+        period_ticks = 1;
+    }
+
+    auto *info = NEW_NOTHROW PeriodicCallbackInfo;
+    if (info == nullptr) {
+        return nullptr;
+    }
+    info->cb = cb;
+
+    TimerHandle_t timer = xTimerCreate("SPIPeriodic",
+                                       period_ticks,
+                                       pdTRUE,
+                                       info,
+                                       periodic_timer_callback);
+    if (timer == nullptr) {
+        delete info;
+        return nullptr;
+    }
+
+    if (xTimerStart(timer, 0) != pdPASS) {
+        xTimerDelete(timer, 0);
+        delete info;
+        return nullptr;
+    }
+
+    return reinterpret_cast<AP_HAL::Device::PeriodicHandle>(timer);
 }
 
 bool SPIDevice::clock_pulse(uint32_t len)
