@@ -295,19 +295,7 @@ bool AP_InertialSensor_Invensensev2::update()
  */
 void AP_InertialSensor_Invensensev2::accumulate()
 {
-#if CONFIG_HAL_BOARD == HAL_BOARD_RP2350
-    /*
-      RP HAL does not implement SPIDevice::register_periodic_callback() yet, so
-      _poll_data() is never called from a bus thread. AP_InertialSensor::wait_for_sample()
-      calls accumulate() in a loop until gyro/accel data exist — without this, that
-      loop never completes (watchdog / apparent "Init Gyro" boot loop).
-     */
-    if (_fifo_buffer == nullptr) {
-        return;
-    }
-    WITH_SEMAPHORE(_dev->get_semaphore());
-    _poll_data();
-#endif
+    // periodic callback drives polling
 }
 
 AuxiliaryBus *AP_InertialSensor_Invensensev2::get_auxiliary_bus()
