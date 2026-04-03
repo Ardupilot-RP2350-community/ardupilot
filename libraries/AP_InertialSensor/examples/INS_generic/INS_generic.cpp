@@ -83,7 +83,7 @@ void loop(void)
 
     // read in user input
     while (hal.console->available()) {
-        user_input = 't'; //hal.console->read();
+        user_input = hal.console->read();
 
         if (user_input == 'd' || user_input == 'D') {
             display_offsets_and_scaling();
