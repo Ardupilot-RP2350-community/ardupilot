@@ -53,7 +53,7 @@ This is an open-hardware project, that is available by the following link https:
 - SERIAL0 -> USB
 - SERIAL1 -> UART0 (RCIN, Onboard ERLS 2.4GHz)
 - SERIAL2 -> UART1 (GPS)
-- SERIAL3 -> UART2 (DisplayPort)
+- SERIAL3 -> UART2 (Digital VTX)
 
 ## Connectors
 
@@ -83,7 +83,7 @@ Unless noted otherwise all connectors are JST GH 1.25mm pitch
 | 7 (blk) | NC | - |
 | 8 (blk) | NC | - |
 
-### Display port
+### Digital VTX port
 
    | Pin | Signal | Volt |
 | --- | --- | --- |
