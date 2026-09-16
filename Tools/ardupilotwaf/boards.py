@@ -676,10 +676,6 @@ def add_dynamic_boards_sitl():
     '''add boards based on existence of hwdef.dat in subdirectories for '''
     add_dynamic_boards_from_hwdef_dir(SITLBoard, 'libraries/AP_HAL_SITL/hwdef')
 
-def add_dynamic_boards_rp2350():
-    '''add boards based on existence of hwdef.dat in subdirectories for RP2350'''
-    add_dynamic_boards_from_hwdef_dir(rp2350, 'libraries/AP_HAL_RP/hwdef')
-
 def add_dynamic_boards_from_hwdef_dir(base_type, hwdef_dir):
     '''add boards based on existence of hwdef.dat in subdirectory'''
     dirname, dirlist, filenames = next(os.walk(hwdef_dir))
@@ -705,13 +701,41 @@ def add_dynamic_boards_esp32():
             else:
                 newclass = type(d, (esp32,), {'name': d})
 
+def add_dynamic_boards_freertos():
+    '''add boards based on existence of hwdef.dat in subdirectories for FreeRTOS'''
+    dirname, dirlist, filenames = next(os.walk('libraries/AP_HAL_FreeRTOS/hwdef'))
+    for d in dirlist:
+        if d in _board_classes.keys():
+            continue
+        hwdef = os.path.join(dirname, d, 'hwdef.dat')
+        hwdef_bl = os.path.join(dirname, d, 'hwdef-bl.dat')
+        if not os.path.exists(hwdef) and not os.path.exists(hwdef_bl):
+            continue
+        hwdef_file = hwdef if os.path.exists(hwdef) else hwdef_bl
+        platform = None
+        with open(hwdef_file, 'r', encoding='utf-8') as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith('#'):
+                    continue
+                tokens = line.split()
+                if len(tokens) >= 2 and tokens[0] == 'PLATFORM':
+                    platform = tokens[1].lower()
+                    break
+        if platform is None:
+            raise RuntimeError(
+                "FreeRTOS board '%s' has no PLATFORM entry in %s"
+                % (d, hwdef_file)
+            )
+        type(d, (freertos,), {'name': d, 'platform': platform,})
+
 def get_boards_names():
     add_dynamic_boards_chibios()
     add_dynamic_boards_esp32()
     add_dynamic_boards_linux()
     add_dynamic_boards_qurt()
     add_dynamic_boards_sitl()
-    add_dynamic_boards_rp2350()
+    add_dynamic_boards_freertos()
 
     return sorted(list(_board_classes.keys()), key=str.lower)
 
@@ -1604,99 +1628,70 @@ class QURTBoard(Board):
         # get name of class
         return self.__class__.__name__
     
-class rp2350(Board):
+class freertos(Board):
     abstract = True
+    # Default for the currently supported RP2350 platform.
     toolchain = 'arm-none-eabi'
+    # Dynamically generated boards must override this.
+    platform = None
 
     def configure(self, cfg):
-        super(rp2350, self).configure(cfg)
+        if self.platform is None:
+            cfg.fatal(
+                "FreeRTOS platform is not defined for board '%s'"
+                % self.get_name()
+            )
+        cfg.env.FREERTOS_PLATFORM = self.platform
+        super(freertos, self).configure(cfg)
         if cfg.env.TOOLCHAIN:
             self.toolchain = cfg.env.TOOLCHAIN
-        else:
-            # default tool-chain for rp2350-based boards:
-            self.toolchain = 'arm-none-eabi'
 
     def configure_env(self, cfg, env):
-        env.BOARD_CLASS = "RP2350"
+        env.BOARD_CLASS = "FreeRTOS"
+        env.FREERTOS_PLATFORM = self.platform
+        cfg.env.FREERTOS_PLATFORM = self.platform
 
-        def expand_path(p):
-            print("USING PICO C/C++ SDK:"+str(env.PICO_SDK))
-            return cfg.root.find_dir(env.PICO_SDK+p).abspath()
-        try:
-            env.PICO_SDK = os.environ['PICO_SDK_PATH']
-        except:
-            env.PICO_SDK = cfg.srcnode.abspath()+"/modules/pico/pico_sdk"
+        super(freertos, self).configure_env(cfg, env)
+        cfg.load('freertos')
+        cfg.freertos_configure_env(env)
 
-        super(rp2350, self).configure_env(cfg, env)
-        cfg.load('rp2350')
         env.DEFINES.update(
-            CONFIG_HAL_BOARD = 'HAL_BOARD_RP2350',
+            CONFIG_HAL_BOARD='HAL_BOARD_FREERTOS',
+            CONFIG_HAL_BOARD_SUBTYPE='HAL_BOARD_SUBTYPE_NONE',
         )
-
-        # this makes sure we get the correct subtype
-        env.DEFINES.update(
-            CONFIG_HAL_BOARD_SUBTYPE = 'HAL_BOARD_SUBTYPE_NONE',
-        )
-
         if self.name.endswith("empty"):
-            # for empty targets build as SIM-on-HW
-            env.DEFINES.update(AP_SIM_ENABLED = 1)
+            env.DEFINES.update(
+                AP_SIM_ENABLED=1,
+            )
             env.AP_LIBRARIES += [
                 'SITL',
             ]
         else:
-            env.DEFINES.update(AP_SIM_ENABLED = 0)
+            env.DEFINES.update(
+                AP_SIM_ENABLED=0,
+            )
 
         env.AP_LIBRARIES += [
-            'AP_HAL_RP',
+            'AP_HAL_FreeRTOS',
         ]
-
-        env.CFLAGS.remove('-Werror=undef')
-        env.CXXFLAGS.remove('-Werror=undef')
-        env.CXXFLAGS.remove('-Werror=shadow')
-        #env.CFLAGS.remove('-Werror=type-limits')
-        #env.CXXFLAGS.remove('-Werror=type-limits')
-
-        env.CFLAGS += [
-            "-Wno-error=type-limits",
-            "-mcpu=cortex-m33",
-            "-mthumb",
-            "-mfpu=fpv5-sp-d16",
-            "-mfloat-abi=hard",
-            "-g3",
-            "-Og"
-        ]
-        env.CXXFLAGS += [
-            "-Wno-error=type-limits",
-            "-mcpu=cortex-m33",
-            "-mthumb",
-            "-mfpu=fpv5-sp-d16",
-            "-mfloat-abi=hard",
-            "-g3",
-            "-Og"
-        ]
-
-        # wrap malloc to ensure memory is zeroed
-        # note that this also needs to be done in the CMakeLists.txt files
-        env.LINKFLAGS += ['-Wl,--wrap,malloc']
-        env.LINKFLAGS += ['-Wl,--wrap,free']
-        env.LINKFLAGS += ['-Wl,--wrap,realloc']
-        env.LINKFLAGS += ['-Wl,--wrap,calloc']
-
         env.AP_PROGRAM_AS_STLIB = True
 
     def pre_build(self, bld):
-        '''pre-build hook that gets called before dynamic sources'''
+        '''Pre-build hook called before dynamic sources.'''
         from waflib.Context import load_tool
-        module = load_tool('rp2350', [], with_sys_path=True)
+        module = load_tool(
+            'freertos',
+            [],
+            with_sys_path=True
+        )
         fun = getattr(module, 'pre_build', None)
         if fun:
             fun(bld)
-        super(rp2350, self).pre_build(bld)
+        super(freertos, self).pre_build(bld)
 
     def build(self, bld):
-        super(rp2350, self).build(bld)
-        bld.load('rp2350')
+        super(freertos, self).build(bld)
+        bld.load('freertos')
 
     def get_name(self):
         return self.__class__.__name__

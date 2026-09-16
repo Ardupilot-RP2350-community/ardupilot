@@ -95,7 +95,7 @@ public:
 
     // called by subclasses when they need to delay for some time
     virtual void call_delay_cb();
-    uint16_t _min_delay_cb_ms;
+    uint16_t _min_delay_cb_ms = 0;
 
     /*
       priority_base is used to select what the priority for a new
@@ -128,8 +128,8 @@ public:
 
 private:
 
-    AP_HAL::Proc _delay_cb;
-    bool _in_delay_callback;
+    AP_HAL::Proc _delay_cb = nullptr;
+    bool _in_delay_callback = false;
 
 };
 

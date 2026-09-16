@@ -38,7 +38,7 @@ extern const AP_HAL::HAL& hal;
 #if CONFIG_HAL_BOARD == HAL_BOARD_CHIBIOS
 // hal.console can be accessed from bus threads on ChibiOS
 #define debug(fmt, args ...)  do {hal.console->printf("INV2: " fmt "\n", ## args); } while(0)
-#elif CONFIG_HAL_BOARD == HAL_BOARD_RP2350
+#elif CONFIG_HAL_BOARD == HAL_BOARD_FREERTOS
 // On RP2350, route debug to hal.console so it appears on the same UART stream
 // as INS_generic output.
 #define debug(fmt, args ...)  do {if (hal.console) { hal.console->printf("INV2: " fmt "\n", ## args); }} while(0)
@@ -613,7 +613,7 @@ bool AP_InertialSensor_Invensensev2::_select_bank(uint8_t bank)
 {
     if (_current_bank != bank) {
         if (!_dev->write_register(INV2REG_BANK_SEL, bank << 4,
-#if CONFIG_HAL_BOARD == HAL_BOARD_RP2350
+#if CONFIG_HAL_BOARD == HAL_BOARD_FREERTOS
                                   false
 #else
                                   true
@@ -714,7 +714,7 @@ bool AP_InertialSensor_Invensensev2::_hardware_init(void)
 {
     WITH_SEMAPHORE(_dev->get_semaphore());
 
-#if CONFIG_HAL_BOARD == HAL_BOARD_RP2350
+#if CONFIG_HAL_BOARD == HAL_BOARD_FREERTOS
     // setup_checked_registers(0, ...) is invalid; keep checked-register tracking disabled here.
 #else
     // disabled setup of checked registers as it can't cope with bank switching
@@ -729,7 +729,7 @@ bool AP_InertialSensor_Invensensev2::_hardware_init(void)
         return false;
     }
 
-#if CONFIG_HAL_BOARD == HAL_BOARD_RP2350
+#if CONFIG_HAL_BOARD == HAL_BOARD_FREERTOS
     /*
       Use wake path without full chip reset, but keep SPI-specific USER_CTRL setup.
       This avoids I2C/SPI arbitration issues and ensures _last_stat_user_ctrl is valid

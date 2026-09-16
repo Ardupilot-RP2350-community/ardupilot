@@ -1,0 +1,174 @@
+# hw definition file for processing by rp_hwdef.py
+# for Pico2Pilot hardware.
+
+# PLATFORM type
+PLATFORM RP2350
+
+# MCU type
+MCU RP2350A
+
+define HAL_MCU_RP2350A_ENABLED 1
+define HAL_MCU_RP2350B_ENABLED 0
+
+define HAL_RP_BOARD_NAME "Pico2Pilot"
+define AP_SCRIPTING_ENABLED 0
+define AP_RSSI_ENABLED 0
+
+# Enabled drivers
+define HAL_NAND_FLASH_ENABLED 0
+define HAL_RCIN_DRIVER_ENABLED 1
+define HAL_RCOUT_DRIVER_ENABLED 1
+define HAL_FLASH_DRIVER_ENABLED 1
+define HAL_STORAGE_DRIVER_ENABLED 1
+define HAL_ANALOGIN_DRIVER_ENABLED 0
+define HAL_SERIAL2_DRIVER_ENABLED 0
+define HAL_SERIAL3_DRIVER_ENABLED 0
+define HAL_SPI_DEVICE_DRIVER_ENABLED 1
+define HAL_I2C_DEVICE_DRIVER_ENABLED 1
+
+# Debug options
+# Console transport: 0=UART (default), 1=USB CDC
+# Set to 1 to route hal.console to USB virtual COM port.
+define HAL_RP_CONSOLE_USB_CDC 0
+define HAL_RP_USB_CDC_CONNECT_TIMEOUT_MS 5000
+define HAL_RP_USB_CDC_FALLBACK_TO_UART0 1
+
+define SCHEDDEBUG 0
+
+# LED
+define AP_NOTIFY_GPIO_LED_1_ENABLED 1
+define AP_NOTIFY_GPIO_LED_1_PIN 25
+define HAL_GPIO_LED_ON 1
+
+define HAL_HAVE_FILESYSTEM 0
+define AP_FILESYSTEM_ENABLED 0
+define AP_FILESYSTEM_NAND_ENABLED 0
+define AP_FILESYSTEM_ROMFS_ENABLED 0
+
+# NOR SPI Flash
+define HAL_FLASH_TOTAL_SIZE 0x400000
+define HAL_FLASH_STORAGE_OFFSET 0x3FC000
+define HAL_FLASH_STORAGE_NUM_PAGES 4
+
+# PIO
+define PIO_UART pio0
+define PIO_PWM_MULTI pio1
+
+# SPI Buses
+#             Host      DMA TX Channel  DMA RX Channel  MOSI   MISO   SCLK
+RP2350_SPIBUS spi0      0               1               GPIO_19 GPIO_16 GPIO_18
+
+# i2c Buses
+#             Port SDA     SCL     SPEED    INTERNAL SOFT
+RP2350_I2CBUS I2C0 GPIO_24 GPIO_25 400*KHZ  true     false
+
+# SPI Devices
+#             Name     Bus   Device  ChipSel      Mode LoSpeed HiSpeed
+# Mode 0, 1MHz for stable SPI bring-up.
+RP2350_SPIDEV icm20649  0     0      GPIO_21      0    1*MHZ   1*MHZ
+
+# RP2350_SPIDEV flash_ext 0     0      GPIO_1       3    2*MHZ   20*MHZ
+
+# RCOutput
+#
+define RCOUT_MAX_CHANNELS 16
+define RCOUT_PWM_RESOLUTION 2600
+define RCOUT_GPIO_BASE GPIO_0
+
+
+# RCInput
+#
+define AP_RCPROTOCOL_ENABLED 1
+
+
+#-----INS/IMU-----
+IMU Invensensev2 SPI:icm20649 ROTATION_NONE
+define HAL_INS_DEFAULT HAL_INS_INV2_SPI
+define INS_MAX_INSTANCES 3  # only here for binary identicality
+
+#-----COMPASS-----
+define AP_COMPASS_AK8963_ENABLED FALSE
+define AP_COMPASS_PROBING_ENABLED 0
+
+# -----BARO-----
+# Barometer setup
+define AP_BARO_BACKEND_DEFAULT_ENABLED 0
+define AP_BARO_DPS280_ENABLED 1
+BARO DPS310 I2C:1:0x76
+define HAL_BARO_ALLOW_INIT_NO_BARO 1
+
+# rcin on what pin?
+define HAL_RP_RCIN GPIO_14
+
+#-----UARTS-----
+#            port        RX           TX
+RP_SERIAL  UART_NUM_0  GPIO_13  GPIO_12
+RP_SERIAL  UART_NUM_1  GPIO_9  	GPIO_8
+define UART0_RX GPIO_13
+define UART0_TX GPIO_12
+define UART1_RX GPIO_9
+define UART1_TX GPIO_8
+define UART2_RX GPIO_11
+define UART2_TX GPIO_10
+
+define UART_TX_BUFFER_SIZE 4096
+define UART_RX_BUFFER_SIZE 4096
+
+#-----ERLS------
+define ERLS_BUILT_IN_MODULE_ENABLED 1
+define ELRS_UART hal.serial(0)
+define DEFAULT_SERIAL0_PROTOCOL SerialProtocol_RCIN
+
+#-----WSPI------
+define HAL_USE_WSPI TRUE
+define HAL_WSPI_DEVICE_LIST "qspi_flash"
+define AP_FLASHSTORAGE_TYPE 2
+
+#-----CAN------
+define HAL_WITH_DRONECAN 0
+define HAL_WITH_UAVCAN 0
+define HAL_MAX_CAN_PROTOCOL_DRIVERS 0
+define HAL_NUM_CAN_IFACES 0
+
+#-----Other features----
+define HAL_HAVE_SAFETY_SWITCH 0
+define HAL_HAVE_BOARD_VOLTAGE 0
+define HAL_HAVE_SERVO_VOLTAGE 0
+
+define HAL_WITH_IO_MCU 0
+
+define HAL_STORAGE_SIZE 16384
+define HAL_PROGRAM_SIZE_LIMIT_KB 4096
+
+#----Resource/feature policy----
+define AP_EXTERNAL_AHRS_ENABLED 0
+define HAL_GENERATOR_ENABLED 0
+
+define AP_COMPASS_BACKEND_DEFAULT_ENABLED 0
+
+define NUM_SERVO_CHANNELS 16
+define HAL_INS_TEMPERATURE_CAL_ENABLE 0
+
+define AP_ADVANCEDFAILSAFE_ENABLED 0
+define AP_ICENGINE_ENABLED 0
+define AP_OPTICALFLOW_ENABLED 0
+define AP_RPM_ENABLED 0
+define AP_AIRSPEED_AUTOCAL_ENABLE 0
+define HAL_MOUNT_ENABLED 0
+define AP_CAMERA_ENABLED 0
+define HAL_SOARING_ENABLED 0
+define AP_TERRAIN_AVAILABLE 0
+define HAL_ADSB_ENABLED 0
+define HAL_BUTTON_ENABLED 0
+define AP_GRIPPER_ENABLED 0
+define AP_LANDINGGEAR_ENABLED 0
+
+define AP_AVOIDANCE_ENABLED 0
+define AP_FENCE_ENABLED 0
+define MODE_FOLLOW_ENABLED 0
+define AP_OAPATHPLANNER_ENABLED 0
+
+define HAL_QUADPLANE_ENABLED 0
+define HAL_GYROFFT_ENABLED 0
+
+define AP_NOTIFY_BUZZER_ENABLED 1

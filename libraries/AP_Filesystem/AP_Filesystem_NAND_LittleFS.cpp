@@ -14,12 +14,13 @@
  */
 #include "AP_Filesystem_config.h"
 
-#if AP_FILESYSTEM_RP2350_ENABLED
+#if AP_FILESYSTEM_NAND_ENABLED
 
 #include "AP_Filesystem.h"
-#include "AP_Filesystem_RP2350.h"
+#include "AP_Filesystem_NAND_LittleFS.h"
 #include <GCS_MAVLink/GCS.h>
 #include <AP_RTC/AP_RTC.h>
+#include <AP_HAL_FreeRTOS/Platform.h>
 
 //#define AP_LFS_DEBUG
 #ifdef AP_LFS_DEBUG
@@ -27,8 +28,6 @@
 #else
 #define debug(fmt, args ...)
 #endif
-
-using namespace RP;
 
 static int flashmem_read(
     const struct lfs_config *cfg, lfs_block_t block, lfs_off_t off,
@@ -48,7 +47,7 @@ const extern AP_HAL::HAL& hal;
 /* Low-level flash memory access                                             */
 /* ************************************************************************* */
 
-bool AP_Filesystem_RP2350::init_flash()
+bool AP_Filesystem_NAND_LittleFS::init_flash()
 {
     WITH_SEMAPHORE(dev_sem);
     if (!wait_until_device_is_ready()) {
@@ -57,7 +56,7 @@ bool AP_Filesystem_RP2350::init_flash()
     return true;
 }
 
-bool AP_Filesystem_RP2350::write_enable()
+bool AP_Filesystem_NAND_LittleFS::write_enable()
 {
     if (!wait_until_device_is_ready()) {
         return false;
@@ -68,13 +67,13 @@ bool AP_Filesystem_RP2350::write_enable()
     return true;
 }
 
-bool AP_Filesystem_RP2350::is_busy()
+bool AP_Filesystem_NAND_LittleFS::is_busy()
 {
     WITH_SEMAPHORE(dev_sem);
     return dev->is_busy();
 }
 
-bool AP_Filesystem_RP2350::mount_filesystem()
+bool AP_Filesystem_NAND_LittleFS::mount_filesystem()
 {
     if (dead) {
         return false;
@@ -92,10 +91,8 @@ bool AP_Filesystem_RP2350::mount_filesystem()
     fs_cfg.erase = flashmem_erase;
     fs_cfg.sync = flashmem_sync;
 
-    HAL_RP &hal_rp = (HAL_RP&)hal;
-    
-    dev = hal_rp.get_nand_pio(); 
-    
+    dev = AP_HAL_FreeRTOS::Platform::get_nand_device();
+
     if (!dev) {
         mark_dead();
         return false;
@@ -143,7 +140,7 @@ bool AP_Filesystem_RP2350::mount_filesystem()
     return true;
 }
 
-uint32_t AP_Filesystem_RP2350::find_block_size_and_count()
+uint32_t AP_Filesystem_NAND_LittleFS::find_block_size_and_count()
 {
     if (!wait_until_device_is_ready()) {
         return false;
@@ -197,7 +194,7 @@ static uint32_t last_write_msg_ms;
 static uint32_t page_reads;
 static uint32_t block_erases;
 #endif
-int AP_Filesystem_RP2350::_flashmem_read(
+int AP_Filesystem_NAND_LittleFS::_flashmem_read(
     lfs_block_t block, lfs_off_t off, void* buffer, lfs_size_t size
 ) {
     EXPECT_DELAY_MS((25*size)/(fs_cfg.read_size*1000));
@@ -232,7 +229,7 @@ int AP_Filesystem_RP2350::_flashmem_read(
     return LFS_ERR_OK;
 }
 
-int AP_Filesystem_RP2350::_flashmem_prog(
+int AP_Filesystem_NAND_LittleFS::_flashmem_prog(
     lfs_block_t block, lfs_off_t off, const void* buffer, lfs_size_t size
 ) {
     EXPECT_DELAY_MS((250*size)/(fs_cfg.read_size*1000));
@@ -281,7 +278,7 @@ int AP_Filesystem_RP2350::_flashmem_prog(
     return LFS_ERR_OK;
 }
 
-int AP_Filesystem_RP2350::_flashmem_erase(lfs_block_t block) {
+int AP_Filesystem_NAND_LittleFS::_flashmem_erase(lfs_block_t block) {
     if (!write_enable()) {
         return LFS_ERR_IO;
     }
@@ -298,7 +295,7 @@ int AP_Filesystem_RP2350::_flashmem_erase(lfs_block_t block) {
     return LFS_ERR_OK;
 }
 
-int AP_Filesystem_RP2350::_flashmem_sync() {
+int AP_Filesystem_NAND_LittleFS::_flashmem_sync() {
     if (wait_until_device_is_ready()) {
         return LFS_ERR_OK;
     } else {
@@ -310,7 +307,7 @@ static int flashmem_read(
     const struct lfs_config *cfg, lfs_block_t block, lfs_off_t off,
     void* buffer, lfs_size_t size
 ) {
-    AP_Filesystem_RP2350* self = static_cast<AP_Filesystem_RP2350*>(cfg->context);
+    AP_Filesystem_NAND_LittleFS* self = static_cast<AP_Filesystem_NAND_LittleFS*>(cfg->context);
     return self->_flashmem_read(block, off, buffer, size);
 }
 
@@ -318,17 +315,17 @@ static int flashmem_prog(
     const struct lfs_config *cfg, lfs_block_t block, lfs_off_t off,
     const void* buffer, lfs_size_t size
 ) {
-    AP_Filesystem_RP2350* self = static_cast<AP_Filesystem_RP2350*>(cfg->context);
+    AP_Filesystem_NAND_LittleFS* self = static_cast<AP_Filesystem_NAND_LittleFS*>(cfg->context);
     return self->_flashmem_prog(block, off, buffer, size);
 }
 
 static int flashmem_erase(const struct lfs_config *cfg, lfs_block_t block) {
-    AP_Filesystem_RP2350* self = static_cast<AP_Filesystem_RP2350*>(cfg->context);
+    AP_Filesystem_NAND_LittleFS* self = static_cast<AP_Filesystem_NAND_LittleFS*>(cfg->context);
     return self->_flashmem_erase(block);
 }
 
 static int flashmem_sync(const struct lfs_config *cfg) {
-    AP_Filesystem_RP2350* self = static_cast<AP_Filesystem_RP2350*>(cfg->context);
+    AP_Filesystem_NAND_LittleFS* self = static_cast<AP_Filesystem_NAND_LittleFS*>(cfg->context);
     return self->_flashmem_sync();
 }
 
@@ -339,4 +336,4 @@ static void get_nand_addr(uint32_t offset, uint32_t pageSize, uint32_t pagesPerB
     page = absolute_page % pagesPerBlock;
 }
 
-#endif // AP_FILESYSTEM_RP2350_ENABLED
+#endif // AP_FILESYSTEM_NAND_ENABLED

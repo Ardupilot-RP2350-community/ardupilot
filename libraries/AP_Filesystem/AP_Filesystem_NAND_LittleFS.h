@@ -15,11 +15,40 @@
 #pragma once
 
 #include "AP_Filesystem_FlashMemory_LittleFS.h"
-#include <AP_HAL_RP/NAND_PIO_Driver.h>
 
-#if AP_FILESYSTEM_RP2350_ENABLED
+class AP_Filesystem_NAND_Device
+{
+public:
+    virtual ~AP_Filesystem_NAND_Device() = default;
 
-class AP_Filesystem_RP2350 : public AP_Filesystem_FlashMemory_LittleFS
+    virtual bool init() = 0;
+    virtual bool is_busy() = 0;
+    virtual void write_enable() = 0;
+    virtual void write_disable() = 0;
+
+    virtual uint32_t get_manufacturer_id() = 0;
+    virtual uint32_t get_page_size() const = 0;
+    virtual uint32_t get_block_size() const = 0;
+    virtual uint32_t get_block_count() const = 0;
+
+    virtual bool read_page(
+        uint32_t block,
+        uint32_t page,
+        void *buffer) = 0;
+
+    virtual bool write_page(
+        uint32_t block,
+        uint32_t page,
+        const void *buffer) = 0;
+
+    virtual bool erase_block(uint32_t block) = 0;
+
+    virtual AP_HAL::Semaphore *get_semaphore() = 0;
+};
+
+#if AP_FILESYSTEM_NAND_ENABLED
+
+class AP_Filesystem_NAND_LittleFS : public AP_Filesystem_FlashMemory_LittleFS
 {
 public:
     int _flashmem_read(lfs_block_t block, lfs_off_t off, void* buffer, lfs_size_t size) override;
@@ -28,8 +57,8 @@ public:
     int _flashmem_sync() override;
 
 private:
-    // PIO device that handles the NAND flash memory
-    RP::NAND_PIO_Driver* dev;
+    // device that handles the NAND flash memory
+    AP_Filesystem_NAND_Device* dev;
 
     bool init_flash() override WARN_IF_UNUSED;
     bool write_enable() override WARN_IF_UNUSED;
@@ -38,4 +67,4 @@ private:
     uint32_t find_block_size_and_count() override;
 };
 
-#endif  // #if AP_FILESYSTEM_RP2350_ENABLED
+#endif  // #if AP_FILESYSTEM_NAND_ENABLED

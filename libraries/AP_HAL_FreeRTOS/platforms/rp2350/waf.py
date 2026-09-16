@@ -25,8 +25,9 @@ from pathlib import Path
 
 import hal_common
 
-sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), '../../libraries/AP_HAL_RP/hwdef/scripts'))
-import rp_hwdef
+sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), '../../../../libraries/AP_HAL_FreeRTOS/hwdef/scripts'))
+
+import rp2350_hwdef
 
 # Ensure PICO_SDK_PATH is set in your environment variables before running this script
 PICO_SDK_PATH = os.environ.get('PICO_SDK_PATH')
@@ -162,7 +163,7 @@ def generate_pico_project(env):
     print("Generated CMakeLists.txt.")
 
     # Copy pioasm
-    hwdef_dir = os.path.join(env.SRCROOT, 'libraries/AP_HAL_RP/hwdef')
+    hwdef_dir = os.path.join(env.SRCROOT, 'libraries/AP_HAL_FreeRTOS/hwdef')
     env.PIOASM = os.path.join(hwdef_dir, env.BOARD, 'pioasm')
     src_pioasm = env.PIOASM
     dst_pioasm = os.path.join(env.AP_HAL_RP2350, 'pioasm')
@@ -201,7 +202,7 @@ def generate_pico_project(env):
 def get_target_mcu(cfg):
     """Read MCU variable from hwdef file."""
 
-    hwdef_file = cfg.srcnode.find_resource(f'libraries/AP_HAL_RP/hwdef/{cfg.variant}/hwdef.dat')
+    hwdef_file = cfg.srcnode.find_resource(f'libraries/AP_HAL_FreeRTOS/hwdef/{cfg.variant}/hwdef.dat')
     if not hwdef_file:
         cfg.fatal(f"hwdef.dat not found for board {cfg.variant}")
 
@@ -224,6 +225,43 @@ def get_target_mcu(cfg):
     print(f"Board: {cfg.variant}, MCU read from hwdef: {target_mcu.upper()}")
     return target_mcu
 
+def configure_env(cfg, env):
+
+    try:
+        env.PICO_SDK = os.environ['PICO_SDK_PATH']
+    except:
+        env.PICO_SDK = cfg.srcnode.abspath()+"/modules/pico/pico_sdk"
+
+    env.AP_LIBRARIES += [
+        'AP_HAL_FreeRTOS',
+    ]
+
+    env.CFLAGS.remove('-Werror=undef')
+    env.CXXFLAGS.remove('-Werror=undef')
+    env.CXXFLAGS.remove('-Werror=shadow')
+    #env.CFLAGS.remove('-Werror=type-limits')
+    #env.CXXFLAGS.remove('-Werror=type-limits')
+
+    cpu_flags = [
+        '-Wno-error=type-limits',
+        '-mcpu=cortex-m33',
+        '-mthumb',
+        '-mfpu=fpv5-sp-d16',
+        '-mfloat-abi=hard',
+        '-g3',
+        '-Og',
+    ]
+
+    env.CFLAGS += cpu_flags
+    env.CXXFLAGS += cpu_flags
+
+    # wrap malloc to ensure memory is zeroed
+    # note that this also needs to be done in the CMakeLists.txt files
+    env.LINKFLAGS += ['-Wl,--wrap,malloc']
+    env.LINKFLAGS += ['-Wl,--wrap,free']
+    env.LINKFLAGS += ['-Wl,--wrap,realloc']
+    env.LINKFLAGS += ['-Wl,--wrap,calloc']
+
 def configure(cfg):
     target=get_target_mcu(cfg)
 
@@ -243,7 +281,7 @@ def configure(cfg):
     cfg.env.prepend_value('CPPPATH', [
         cfg.srcnode.find_dir('libraries/AP_Common').abspath(),
         cfg.srcnode.find_dir('libraries/AP_HAL').abspath(),
-        cfg.srcnode.find_dir('libraries/AP_HAL_RP').abspath(),
+        cfg.srcnode.find_dir('libraries/AP_HAL_FreeRTOS').abspath(),
     ])
     cfg.env.prepend_value('CPPPATH', [
         cfg.srcnode.find_dir('libraries/AP_Common/missing').abspath()
@@ -257,9 +295,10 @@ def configure(cfg):
     target_dir = 'targets/%s/pico-sdk' % target
     env.AP_HAL_RP2350 = bldpath(target_dir)
     env.AP_PROGRAM_FEATURES += ['rp2350_ap_program']
-    env.FREERTOS_CONFIG_H_TEMPLATE = srcpath('libraries/AP_HAL_RP/template/FreeRTOSConfig.h.template')
-    env.CMAKE_LISTS_TXT_TEMPLATE = srcpath('libraries/AP_HAL_RP/template/CMakeLists.txt.template')
-    env.PICO_SDK_PATCH_DIR = srcpath('libraries/AP_HAL_RP/patches/pico-sdk')
+    rp2350_dir = 'libraries/AP_HAL_FreeRTOS/platforms/rp2350'
+    env.FREERTOS_CONFIG_H_TEMPLATE = srcpath(os.path.join(rp2350_dir, 'template', 'FreeRTOSConfig.h.template'))
+    env.CMAKE_LISTS_TXT_TEMPLATE = srcpath(os.path.join(rp2350_dir, 'template', 'CMakeLists.txt.template'))
+    env.PICO_SDK_PATCH_DIR = srcpath(os.path.join(rp2350_dir, 'patches', 'pico-sdk'))
     env.PICO_SDK_PREFIX_REL = 'pico-sdk'
 
     env.RP_TARGET = target
@@ -302,8 +341,8 @@ def configure(cfg):
     hal_common.process_hwdef_results(cfg, hwdef_obj)
 
 def generate_hwdef_h(env):
-    '''run rp_hwdef.py'''
-    hwdef_dir = os.path.join(env.SRCROOT, 'libraries/AP_HAL_RP/hwdef')
+    '''run rp2350_hwdef.py'''
+    hwdef_dir = os.path.join(env.SRCROOT, 'libraries/AP_HAL_FreeRTOS/hwdef')
 
     if len(env.HWDEF) == 0:
         env.HWDEF = os.path.join(hwdef_dir, env.BOARD, 'hwdef.dat')
@@ -314,7 +353,7 @@ def generate_hwdef_h(env):
     if env.HWDEF_EXTRA:
         hwdef.append(env.HWDEF_EXTRA)
 
-    hwdef_obj = rp_hwdef.RP2350HWDef(
+    hwdef_obj = rp2350_hwdef.RP2350HWDef(
         outdir=hwdef_out,
         hwdef=hwdef,
         quiet=False,

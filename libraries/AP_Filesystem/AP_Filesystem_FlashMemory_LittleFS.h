@@ -16,7 +16,7 @@
 
 #include "AP_Filesystem_backend.h"
 
-#if AP_FILESYSTEM_LITTLEFS_ENABLED || AP_FILESYSTEM_RP2350_ENABLED
+#if AP_FILESYSTEM_LITTLEFS_ENABLED || AP_FILESYSTEM_NAND_ENABLED
 
 #include <AP_HAL/AP_HAL.h>
 #include <AP_HAL/Semaphores.h>

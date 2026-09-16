@@ -21,7 +21,7 @@
 */
 #include "AP_Filesystem_config.h"
 
-#if AP_FILESYSTEM_LITTLEFS_ENABLED || AP_FILESYSTEM_RP2350_ENABLED
+#if AP_FILESYSTEM_LITTLEFS_ENABLED || AP_FILESYSTEM_NAND_ENABLED
 
 #include "AP_Filesystem.h"
 #include "AP_Filesystem_FlashMemory_LittleFS.h"
