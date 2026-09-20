@@ -3,9 +3,9 @@
 #include "pico/stdlib.h"
 #include "hardware/gpio.h"
 
-using namespace AP_HAL_FreeRTOS::RP2350;
-
 extern const AP_HAL::HAL& hal;
+
+namespace AP_HAL_FreeRTOS::RP2350 {
 
 // Global pointers for interrupt handling (simplified)
 static UARTDriver* uart_drivers[2] = {nullptr, nullptr};
@@ -260,3 +260,4 @@ size_t UARTDriver::write(uint8_t c) {
 size_t UARTDriver::write(const uint8_t *buffer, size_t size) {
     return _write(buffer, size);
 }
+} //namespace AP_HAL_FreeRTOS::RP2350

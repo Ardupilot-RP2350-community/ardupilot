@@ -8,9 +8,9 @@
 #include "hardware/dma.h"
 #include "hardware/spi.h"
 
-using namespace AP_HAL_FreeRTOS::RP2350;
-
 extern const AP_HAL::HAL& hal;
+
+namespace AP_HAL_FreeRTOS::RP2350 {
 
 // Keep blocking SPI path enabled until DMA path is validated on RP2350.
 static constexpr bool rp_spi_use_dma = false;
@@ -479,3 +479,4 @@ SPIDeviceManager::get_device_ptr(const char *name)
     return nullptr;
 }
 
+} // namespace AP_HAL_FreeRTOS::RP2350

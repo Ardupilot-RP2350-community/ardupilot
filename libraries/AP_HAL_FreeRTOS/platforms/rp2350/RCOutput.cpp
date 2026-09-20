@@ -12,9 +12,9 @@
 #include "pico/platform.h"
 #include <cstring>
 
-using namespace AP_HAL_FreeRTOS::RP2350;
-
 extern const AP_HAL::HAL& hal;
+
+namespace AP_HAL_FreeRTOS::RP2350 {
 
 uint32_t RCOutput::_bit_buffer[2][RCOUT_PWM_RESOLUTION] __attribute__((aligned(16)));
 uint8_t RCOutput::_write_idx = 0;
@@ -196,5 +196,5 @@ void RCOutput::update_bit_buffer() {
 
     __dmb();
 }
-
+} // namespace AP_HAL_FreeRTOS::RP2350
 #endif // HAL_RCOUT_DRIVER_ENABLED

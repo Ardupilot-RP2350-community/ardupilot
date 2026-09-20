@@ -2,9 +2,9 @@
 
 #if AP_NOTIFY_GPIO_LED_1_ENABLED
 
-using namespace AP_HAL_FreeRTOS::RP2350;
-
 extern const AP_HAL::HAL& hal;
+
+namespace AP_HAL_FreeRTOS::RP2350 {
 
 bool LED::init(void) {
 	bool status = _led.init();
@@ -17,5 +17,7 @@ bool LED::init(void) {
 void LED::update(void) {
 	_led.update();
 }
+
+} // namespace AP_HAL_FreeRTOS::RP2350
 
 #endif // AP_NOTIFY_GPIO_LED_1_ENABLED

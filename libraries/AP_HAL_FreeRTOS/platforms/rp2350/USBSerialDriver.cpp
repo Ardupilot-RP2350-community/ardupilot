@@ -5,9 +5,9 @@
 #include "tusb.h"
 #include <array>
 
-using namespace AP_HAL_FreeRTOS::RP2350;
-
 extern const AP_HAL::HAL& hal;
+
+namespace AP_HAL_FreeRTOS::RP2350 {
 
 namespace {
 
@@ -400,3 +400,4 @@ void USBSerialDriver::backend_task()
 {
     USBSerialManager::instance().task();
 }
+} // namespace AP_HAL_FreeRTOS::RP2350 {

@@ -7,9 +7,9 @@
 #include "pico/stdlib.h"
 #include <string.h>
 
-using namespace AP_HAL_FreeRTOS::RP2350;
-
 extern const AP_HAL::HAL& hal;
+
+namespace AP_HAL_FreeRTOS::RP2350 {
 
 enum FlashCmd {
     FLASH_CMD_RESET = 0xFF,
@@ -356,4 +356,5 @@ bool NAND_PIO_Driver::write_page(uint32_t block, uint32_t page, const void *data
     program_execute(block, page);
     return true;
 }
+} // namespace AP_HAL_FreeRTOS::RP2350
 #endif // HAL_NAND_FLASH_ENABLED

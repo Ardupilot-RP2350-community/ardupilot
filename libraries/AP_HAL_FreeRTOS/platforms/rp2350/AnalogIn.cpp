@@ -2,9 +2,9 @@
 #include "hardware/gpio.h"
 #include "pico/stdlib.h"
 
-using namespace AP_HAL_FreeRTOS::RP2350;
-
 extern const AP_HAL::HAL& hal;
+
+namespace AP_HAL_FreeRTOS::RP2350 {
 
 // --- AnalogSource implementation ---
 
@@ -106,3 +106,4 @@ void AnalogIn::_update() {
         }
     }
 }
+} // namespace AP_HAL_FreeRTOS::RP2350

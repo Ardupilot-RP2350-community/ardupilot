@@ -3,7 +3,7 @@
 
 #include "hardware/gpio.h"
 
-using namespace AP_HAL_FreeRTOS::RP2350;
+namespace AP_HAL_FreeRTOS::RP2350 {
 
 // RP2350 has GPIOs 0..29 or 0..47 available to the user.
 static inline bool rp_valid_pin(uint8_t pin)
@@ -110,3 +110,4 @@ void DigitalSource::toggle()
     GPIO gpio;
     gpio.toggle(_pin);
 }
+} // namespace AP_HAL_FreeRTOS::RP2350

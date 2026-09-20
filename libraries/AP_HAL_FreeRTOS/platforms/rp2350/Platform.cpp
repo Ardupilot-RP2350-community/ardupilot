@@ -208,7 +208,7 @@ void init()
 #endif
 }
 
-extern void init_usb_cdc_drivers()
+void init_usb_cdc_drivers()
 {
     usbConsoleDriver.begin(115200);
     usbMavlinkDriver.begin(115200);

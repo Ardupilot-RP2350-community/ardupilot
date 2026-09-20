@@ -7,7 +7,7 @@
 
 extern const AP_HAL::HAL& hal;
 
-using namespace AP_HAL_FreeRTOS::RP2350;
+namespace AP_HAL_FreeRTOS::RP2350 {
 
 uint8_t Storage::_buffer[HAL_STORAGE_SIZE];
 
@@ -78,3 +78,4 @@ bool Storage::_flash_erase_ok() {
     // In ArduPilot, you can add an "if not in flight" check here
     return true;
 }
+} // namespace AP_HAL_FreeRTOS::RP2350

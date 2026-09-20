@@ -11,9 +11,9 @@
 #define AP_HAL_RP_PIO_UART_PROGRAMS_AVAILABLE 0
 #endif
 
-using namespace AP_HAL_FreeRTOS::RP2350;
-
 extern const AP_HAL::HAL& hal;
+
+namespace AP_HAL_FreeRTOS::RP2350 {
 
 PIOSerialDriver::PIOSerialDriver(PIO pio, uint8_t tx_pin, uint8_t rx_pin, bool console) :
     _pio(pio),
@@ -287,3 +287,5 @@ size_t PIOSerialDriver::write(const uint8_t *buffer, size_t size)
 {
     return _write(buffer, size);
 }
+
+} // namespace AP_HAL_FreeRTOS::RP2350

@@ -21,9 +21,9 @@
 #include "pico/multicore.h"
 #include "hardware/watchdog.h"
 
-using namespace AP_HAL_FreeRTOS::RP2350;
-
 extern const AP_HAL::HAL& hal;
+
+namespace AP_HAL_FreeRTOS::RP2350 {
 
 const Scheduler::Config Scheduler::_config = {
     {"Ardu_Main", MAIN_SS * sizeof(StackType_t), MAIN_PRIO, 1U << 0},
@@ -119,3 +119,4 @@ void Scheduler::reboot(bool hold_in_bootloader)
         watchdog_reboot(0, 0, 0);
     }
 }
+} // namespace AP_HAL_FreeRTOS::RP2350

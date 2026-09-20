@@ -7,7 +7,7 @@
 
 #if HAL_USE_WSPI == TRUE && defined(HAL_WSPI_DEVICE_LIST)
 
-using namespace AP_HAL_FreeRTOS::RP2350;
+namespace AP_HAL_FreeRTOS::RP2350 {
 
 namespace {
 
@@ -267,5 +267,5 @@ static inline uint32_t get_addr24(const uint8_t *txbuf, size_t txlen)
 }
 
 } //namespace
-
+} // namespace AP_HAL_FreeRTOS::RP2350
 #endif // #if HAL_USE_WSPI == TRUE && defined(HAL_WSPI_DEVICE_LIST)

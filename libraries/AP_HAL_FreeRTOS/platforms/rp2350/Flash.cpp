@@ -5,7 +5,7 @@
 
 extern const AP_HAL::HAL& hal;
 
-using namespace AP_HAL_FreeRTOS::RP2350;
+namespace AP_HAL_FreeRTOS::RP2350 {
 
 // Standard commands for Flash memory
 #define JEDEC_WRITE_ENABLE    0x06
@@ -126,3 +126,4 @@ bool Flash::ispageerased(uint32_t page) {
     }
     return true;
 }
+} // namespace AP_HAL_FreeRTOS::RP2350

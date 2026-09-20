@@ -2,9 +2,9 @@
 #include <AP_HAL/AP_HAL.h>
 #include <AP_InternalError/AP_InternalError.h>
 
-using namespace AP_HAL_FreeRTOS::RP2350;
-
 extern const AP_HAL::HAL& hal;
+
+namespace AP_HAL_FreeRTOS::RP2350 {
 
 RCInput::RCInput() : _init(false), _uart(nullptr)
 {}
@@ -96,3 +96,4 @@ void RCInput::_process_uart() {
         }
     }
 }
+} // namespace AP_HAL_FreeRTOS::RP2350

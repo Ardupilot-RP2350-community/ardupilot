@@ -9,9 +9,9 @@
 #include <unistd.h>
 #include <cstdio>
 
-using namespace AP_HAL_FreeRTOS::RP2350;
-
 extern char __StackLimit; 
+
+namespace AP_HAL_FreeRTOS::RP2350 {
 
 Util::Util() :
     _soft_armed(false)
@@ -155,3 +155,4 @@ bool Util::get_reset_info(uint32_t &reason) {
     return true;
 }
 #endif
+} // namespace AP_HAL_FreeRTOS::RP2350

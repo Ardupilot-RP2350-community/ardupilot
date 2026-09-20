@@ -1,6 +1,8 @@
 #include "HAL_FreeRTOS_Class.h"
 #include "AP_HAL_FreeRTOS_Private.h"
 
+extern const AP_HAL::HAL& hal;
+
 using namespace AP_HAL_FreeRTOS;
 
 HAL_FreeRTOS::HAL_FreeRTOS()
@@ -42,8 +44,6 @@ HAL_FreeRTOS::HAL_FreeRTOS(const HALConfig &c)
         nullptr)
 {
 }
-
-extern const AP_HAL::HAL& hal;
 
 void HAL_FreeRTOS::run(int argc, char * const argv[], Callbacks *callbacks) const
 {
